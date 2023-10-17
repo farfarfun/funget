@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import os.path
-
+import shutil
 import requests
 from .core import Downloader
 from .work import WorkerFactory, Worker
@@ -82,8 +82,9 @@ class SpiltDownloader(Downloader):
         with open(self.filepath, "wb") as fw:
             for file in tqdm(success_files,desc='merge'):
                 with open(file, "rb") as fr:
-                    fw.write(fr.read())
-                    fw.flush()
+                    #fw.write(fr.read())
+                    #fw.flush()
+                    shutil.copyfileobj(fr, fw)
                 os.remove(file)
             os.removedirs(cache_dir)
 
