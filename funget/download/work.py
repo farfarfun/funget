@@ -7,6 +7,7 @@ from threading import Thread
 from typing import List
 
 import requests
+from funfile import ConcurrentFile
 
 
 def _update_callback(total, curser, current):
@@ -21,25 +22,26 @@ def _update_callback(total, curser, current):
 
 class Worker:
     def __init__(
-        self,
-        url: str,
-        filepath,
-        range_start=0,
-        range_end=None,
-        update_callback=None,
-        finish_callback=None,
-        chunk_size=1024 * 1024,
-        *args,
-        **kwargs,
+            self,
+            url: str,
+            filepath,
+            fileobj=None,
+            range_start=0,
+            range_end=None,
+            update_callback=None,
+            finish_callback=None,
+            chunk_size=1024 * 1024,
+            *args,
+            **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super(Worker, self).__init__(*args, **kwargs)
         self.url = url
         self.filepath = filepath
-
+        self.fileobj = fileobj
         self.range_start = range_start
         self.range_curser = range_start
         self.range_end = range_end or self._get_size()
-        self.size = self.range_end - self.range_start+1
+        self.size = self.range_end - self.range_start + 1
         self.update_callback = update_callback or _update_callback
         self.finish_callback = finish_callback
         self.chunk_size = chunk_size or 100 * 1024
@@ -54,13 +56,21 @@ class Worker:
             os.makedirs(os.path.dirname(self.filepath))
 
         header = {"Range": f"bytes={self.range_curser}-{self.range_end}"}
-        with requests.get(self.url, stream=True, headers=header) as req:
-            if 200 <= req.status_code <= 299:
-                with open(self.filepath, "wb") as cache:
+        if self.fileobj is not None:
+            with requests.get(self.url, stream=True, headers=header) as req:
+                if 200 <= req.status_code <= 299:
                     for chunk in req.iter_content(chunk_size=self.chunk_size):
-                        _size = cache.write(chunk)
+                        _size = self.fileobj.write(self.range_curser, chunk)
                         self.range_curser += _size
                         self.update_callback(self.size, self.range_curser, _size)
+        else:
+            with requests.get(self.url, stream=True, headers=header) as req:
+                if 200 <= req.status_code <= 299:
+                    with ConcurrentFile(self.filepath, "wb") as cache:
+                        for chunk in req.iter_content(chunk_size=self.chunk_size):
+                            _size = cache.write(self.range_curser, chunk)
+                            self.range_curser += _size
+                            self.update_callback(self.size, self.range_curser, _size)
         if self.finish_callback:
             self.finish_callback(self)
 
@@ -109,22 +119,13 @@ class _WorkerFactory(object):
     def empty(self):
         return self._task_queue.empty()
 
-
-class WorkerFactory(object):
-    def __init__(self, worker_num=5, capacity=50, timeout=30):
-        self.worker_num = worker_num
-        self.capacity = capacity
-        self.timeout = timeout
-        self._handle: _WorkerFactory = ...
-
     def __enter__(self):
-        self._handle = _WorkerFactory(worker_num=self.worker_num, capacity=self.capacity, timeout=self.timeout)
-        self._handle.start()
-        return self._handle
+        self.start()
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        while not self._handle.empty():
+        while not self.empty():
             time.sleep(1)
-        self._handle.wait_for_all_done()
-        self._handle.close()
+        self.wait_for_all_done()
+        self.close()
         return True
