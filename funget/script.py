@@ -21,6 +21,7 @@ def funget():
     parser = argparse.ArgumentParser(prog="PROG")
 
     # 添加子命令
+    parser.add_argument("--url", help="下载链接")
     parser.add_argument("--multi", default=False, action="store_true", help="build multi package")
     parser.add_argument("--worker", default=10, help="下载的多线程数量")
     parser.add_argument("--capacity", default=100, help="下载的容量")
