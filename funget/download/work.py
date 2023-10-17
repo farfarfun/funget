@@ -24,7 +24,7 @@ class Worker:
     def __init__(
             self,
             url: str,
-            filepath,
+            filepath=None,
             fileobj=None,
             range_start=0,
             range_end=None,
