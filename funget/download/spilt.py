@@ -81,7 +81,9 @@ class SpiltDownloader(Downloader):
                     continue
                 pool.submit(worker=worker)
 
+        
         assert len(success_files) == self.blocks_num
+        success_files = sorted(success_files,key=lambda x:x)
         with open(self.filepath, "wb") as fw:
             for file in tqdm(success_files, desc='merge'):
                 with open(file, "rb") as fr:
