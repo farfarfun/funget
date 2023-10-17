@@ -1,18 +1,16 @@
 import argparse
-import logging
 import os
-import time
 
 from funget import simple_download, split_download
-from git import Repo
 
 
 def download(args):
     url = args.url
+    filepath = f'./{os.path.basename(url)}'
     if args.multi:
-        return split_download(args.url, filepath=f'./{os.path.basename(url)}', worker_num=worker, capacity=capacity)
+        return split_download(args.url, filepath=filepath, worker_num=args.worker, capacity=args.capacity)
     else:
-        return simple_download(args.url)
+        return simple_download(args.url, filepath=filepath)
 
 
 def funget():
