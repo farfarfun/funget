@@ -20,6 +20,7 @@ def funget():
     parser.add_argument("url", help="下载链接")
     parser.add_argument("--multi", default=False, action="store_true", help="build multi package")
     parser.add_argument("--worker", default=10, help="下载的多线程数量")
+    parser.add_argument("--block_size", default=100, help="下载的块大小")
     parser.add_argument("--capacity", default=100, help="下载的容量")
 
     parser.set_defaults(func=download)  # 设置默认函数

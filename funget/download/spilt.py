@@ -2,16 +2,19 @@
 import os
 import os.path
 import shutil
+
 import requests
-from .core import Downloader
-from .work import WorkerFactory, Worker
 from funfile.compress.utils import file_tqdm_bar
 from tqdm import tqdm
 
+from .core import Downloader
+from .work import WorkerFactory, Worker
+
+
 class SpiltDownloader(Downloader):
-    def __init__(self, blocks_num=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.blocks_num = blocks_num or self.filesize // (100 * 1024 * 1024)
+    def __init__(self, blocks_num=None, block_size=100, *args, **kwargs):
+        super(SpiltDownloader, self).__init__(*args, **kwargs)
+        self.blocks_num = blocks_num or self.filesize // (block_size * 1024 * 1024)
 
         if not self.check_available():
             print(f"{self.filename} this url not support range requests,set blocks_num=1.")
@@ -80,10 +83,10 @@ class SpiltDownloader(Downloader):
 
         assert len(success_files) == self.blocks_num
         with open(self.filepath, "wb") as fw:
-            for file in tqdm(success_files,desc='merge'):
+            for file in tqdm(success_files, desc='merge'):
                 with open(file, "rb") as fr:
-                    #fw.write(fr.read())
-                    #fw.flush()
+                    # fw.write(fr.read())
+                    # fw.flush()
                     shutil.copyfileobj(fr, fw)
                 os.remove(file)
             os.removedirs(cache_dir)
@@ -94,7 +97,7 @@ class SpiltDownloader(Downloader):
             return req.status_code == 206
 
 
-def download(url, filepath, overwrite=False, worker_num=5, capacity=100, prefix=""):
-    SpiltDownloader(url=url, filepath=filepath, overwrite=overwrite).download(
+def download(url, filepath, overwrite=False, worker_num=5, capacity=100, block_size=100, prefix=""):
+    SpiltDownloader(url=url, filepath=filepath, overwrite=overwrite, block_size=block_size).download(
         worker_num=worker_num, capacity=capacity, prefix=prefix
     )
