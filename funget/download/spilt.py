@@ -6,7 +6,7 @@ import requests
 from .core import Downloader
 from .work import WorkerFactory, Worker
 from funfile.compress.utils import file_tqdm_bar
-
+from tqdm import tqdm
 
 class SpiltDownloader(Downloader):
     def __init__(self, blocks_num=None, *args, **kwargs):
@@ -80,7 +80,7 @@ class SpiltDownloader(Downloader):
 
         assert len(success_files) == self.blocks_num
         with open(self.filepath, "wb") as fw:
-            for file in success_files:
+            for file in tqdm(success_files,desc='merge'):
                 with open(file, "rb") as fr:
                     fw.write(fr.read())
                     fw.flush()
