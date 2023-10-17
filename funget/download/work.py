@@ -26,7 +26,7 @@ class Worker:
             range_end=None,
             update_callback=None,
             finish_callback=None,
-            chunk_size=1024 * 1024,
+            chunk_size=10*1024 * 1024,
             *args,
             **kwargs,
     ):
