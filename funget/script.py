@@ -8,7 +8,7 @@ def download(args):
     url = args.url
     filepath = f'./{os.path.basename(url)}'
     if args.multi:
-        return split_download(args.url, filepath=filepath, worker_num=args.worker, capacity=args.capacity)
+        return split_download(args.url, filepath=filepath, worker_num=args.worker,block_size=args.block_size, capacity=args.capacity)
     else:
         return simple_download(args.url, filepath=filepath)
 
