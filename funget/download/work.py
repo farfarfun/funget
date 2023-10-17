@@ -66,12 +66,13 @@ class Worker:
 
 
 class WorkerFactory(object):
-    def __init__(self, worker_num, capacity, timeout=30):
+    def __init__(self, worker_num=10, capacity=100, timeout=30):
         self.worker_num = worker_num
-        self._task_queue = Queue(maxsize=capacity)
         self.timeout = timeout
-        self._threads: List[Thread] = []
         self._close = False
+        self._task_queue = Queue(maxsize=capacity)
+        self._threads: List[Thread] = []
+        self.start()
 
     def submit(self, worker):
         self._task_queue.put(worker)
@@ -103,7 +104,6 @@ class WorkerFactory(object):
         return self._task_queue.empty()
 
     def __enter__(self):
-        self.start()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
