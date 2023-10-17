@@ -19,14 +19,13 @@ def download(args):
 
 def funget():
     parser = argparse.ArgumentParser(prog="PROG")
-    subparsers = parser.add_subparsers(help="sub-command help")
 
     # 添加子命令
-    subparsers.add_argument("--multi", default=False, action="store_true", help="build multi package")
-    subparsers.add_argument("--worker", default=10, help="下载的多线程数量")
-    subparsers.add_argument("--capacity", default=100, help="下载的容量")
+    parser.add_argument("--multi", default=False, action="store_true", help="build multi package")
+    parser.add_argument("--worker", default=10, help="下载的多线程数量")
+    parser.add_argument("--capacity", default=100, help="下载的容量")
     
-    subparsers.set_defaults(func=download)  # 设置默认函数
+    parser.set_defaults(func=download)  # 设置默认函数
     
     args = parser.parse_args()
     args.func(args)
