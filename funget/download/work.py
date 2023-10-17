@@ -82,7 +82,7 @@ class Worker:
         return {"curser": self.range_curser, "start": self.range_start, "end": self.range_end, "total": self.size}
 
 
-class _WorkerFactory(object):
+class WorkerFactory(object):
     def __init__(self, worker_num, capacity, timeout=30):
         self.worker_num = worker_num
         self._task_queue = Queue(maxsize=capacity)
