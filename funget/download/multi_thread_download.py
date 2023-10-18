@@ -10,9 +10,9 @@ from funget.download.work import Worker
 from funget.download.work import WorkerFactory
 
 
-class SpiltDownloader(Downloader):
+class MultiThreadDownloader(Downloader):
     def __init__(self, block_size=100, *args, **kwargs):
-        super(SpiltDownloader, self).__init__(*args, **kwargs)
+        super(MultiThreadDownloader, self).__init__(*args, **kwargs)
         self.blocks_num = self.filesize // (block_size * 1024 * 1024)
 
         if not self.check_available():
@@ -75,6 +75,6 @@ class SpiltDownloader(Downloader):
 
 
 def download(url, filepath, overwrite=False, worker_num=5, capacity=100, block_size=100, prefix=""):
-    SpiltDownloader(url=url, filepath=filepath, overwrite=overwrite, block_size=block_size).download(
+    MultiThreadDownloader(url=url, filepath=filepath, overwrite=overwrite, block_size=block_size).download(
         worker_num=worker_num, capacity=capacity, prefix=prefix
     )
