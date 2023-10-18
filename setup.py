@@ -1,6 +1,6 @@
 from funpypi import setup
 
-install_requires = ["funpypi", "funbuild","funfile"]
+install_requires = ["funpypi", "funbuild","funfile","requests","tqdm"]
 
 setup(
     name="funget",
