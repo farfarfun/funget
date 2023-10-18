@@ -22,5 +22,5 @@ def funget():
 
     parser.set_defaults(func=download)  # 设置默认函数
 
-    args = parser.parse_args()
+    args = parser.parse_known_args()
     args.func(args)
