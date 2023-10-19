@@ -51,7 +51,7 @@ class Worker:
         with requests.get(self.url, stream=True, headers=header) as req:
             if 200 <= req.status_code <= 299:
                 for chunk in req.iter_content(chunk_size=self.chunk_size):
-                    _size = self.fileobj.write(chunk, offset=self.range_curser)
+                    _size = self.fileobj.write(chunk=chunk, offset=self.range_curser)
                     self.range_curser += _size
                     self.update_callback(self.size, self.range_curser, _size)
         if self.finish_callback:
