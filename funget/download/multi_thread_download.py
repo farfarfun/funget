@@ -50,20 +50,25 @@ class MultiThreadDownloader(Downloader):
         with ConcurrentFile(self.filepath, 'wb') as fw:
             with WorkerFactory(worker_num=worker_num, capacity=capacity, timeout=1) as pool:
                 for index, (start, end) in enumerate(range_list):
+                    for record in fw._data:
+                        if record[0] <= start <= record[1]:
+                            start = record[1] + 1
+                    if start >= end:
+                        success_files.append("2")
+                        pbar.set_description(
+                            desc=f"{prefix}|{len(success_files)}/{self.blocks_num}|{os.path.basename(self.filepath)}"
+                        )
+                        continue
+
                     def finish_callback(worker: Worker, *args, **kwargs):
                         success_files.append("2")
                         pbar.set_description(
                             desc=f"{prefix}|{len(success_files)}/{self.blocks_num}|{os.path.basename(self.filepath)}"
                         )
+                        fw.curser_merge()
 
-                    worker = Worker(
-                        url=self.url,
-                        range_start=start,
-                        range_end=end,
-                        fileobj=fw,
-                        update_callback=update_pbar,
-                        finish_callback=finish_callback,
-                    )
+                    worker = Worker(url=self.url, range_start=start, range_end=end, fileobj=fw,
+                                    update_callback=update_pbar, finish_callback=finish_callback, )
                     pool.submit(worker=worker)
 
     def check_available(self) -> bool:
