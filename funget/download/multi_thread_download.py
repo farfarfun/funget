@@ -65,7 +65,6 @@ class MultiThreadDownloader(Downloader):
                         pbar.set_description(
                             desc=f"{prefix}|{len(success_files)}/{self.blocks_num}|{os.path.basename(self.filepath)}"
                         )
-                        fw.curser_merge()
 
                     worker = Worker(url=self.url, range_start=start, range_end=end, fileobj=fw,
                                     update_callback=update_pbar, finish_callback=finish_callback, )
