@@ -50,9 +50,12 @@ class MultiThreadDownloader(Downloader):
         with ConcurrentFile(self.filepath, 'wb') as fw:
             with WorkerFactory(worker_num=worker_num, capacity=capacity, timeout=1) as pool:
                 for index, (start, end) in enumerate(range_list):
-                    for record in fw._data:
+                    for record in fw._writen_data:
                         if record[0] <= start <= record[1]:
+                            
                             start = record[1] + 1
+                            pbar.update(start - record[0])
+                            break
                     if start >= end:
                         success_files.append("2")
                         pbar.set_description(
