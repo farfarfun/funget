@@ -13,13 +13,13 @@ files = [
 
 [[package]]
 name = "funfile"
-version = "1.0.2"
+version = "1.0.4"
 description = ""
 optional = false
-python-versions = "<4.0,>=3.7"
+python-versions = "<4.0,>=3.8"
 files = [
-    {file = "funfile-1.0.2-py3-none-any.whl", hash = "sha256:b472a2648d7124360c1a7bf965c1ee991838a67a67c9622110bbdce0068c5d39"},
-    {file = "funfile-1.0.2.tar.gz", hash = "sha256:e6151494d0ea27cbb895dd543a44287e91e12cec042a6b137497b116a40439c8"},
+    {file = "funfile-1.0.4-py3-none-any.whl", hash = "sha256:8974cd96018c3d5713d09f33cea07faccf7cd8c56027addf25763e1d33c1622f"},
+    {file = "funfile-1.0.4.tar.gz", hash = "sha256:a4c3515243ccbbc2a4620f78de8b6ba39bf552dbef9cc3441d701da23cd70cf1"},
 ]
 
 [package.dependencies]
