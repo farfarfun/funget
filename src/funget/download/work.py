@@ -19,16 +19,16 @@ def _update_callback(total, curser, current):
 
 class Worker:
     def __init__(
-            self,
-            url: str,
-            fileobj,
-            range_start=0,
-            range_end=None,
-            update_callback=None,
-            finish_callback=None,
-            chunk_size=2 * 1024 * 1024,
-            *args,
-            **kwargs,
+        self,
+        url: str,
+        fileobj,
+        range_start=0,
+        range_end=None,
+        update_callback=None,
+        finish_callback=None,
+        chunk_size=2 * 1024 * 1024,
+        *args,
+        **kwargs,
     ):
         super(Worker, self).__init__(*args, **kwargs)
         self.url = url

@@ -2,8 +2,9 @@
 import os
 
 import requests
-from .core import Downloader
 from tqdm import tqdm
+
+from .core import Downloader
 
 
 class SimpleDownloader(Downloader):

@@ -5,9 +5,9 @@ import os.path
 import requests
 from funfile import ConcurrentFile
 from funfile.compress.utils import file_tqdm_bar
-from funget.download.core import Downloader
-from funget.download.work import Worker
-from funget.download.work import WorkerFactory
+
+from .core import Downloader
+from .work import Worker, WorkerFactory
 
 
 class MultiThreadDownloader(Downloader):
@@ -47,12 +47,11 @@ class MultiThreadDownloader(Downloader):
             pbar.update(current)
             pbar.refresh()
 
-        with ConcurrentFile(self.filepath, 'wb') as fw:
+        with ConcurrentFile(self.filepath, "wb") as fw:
             with WorkerFactory(worker_num=worker_num, capacity=capacity, timeout=1) as pool:
                 for index, (start, end) in enumerate(range_list):
                     for record in fw._writen_data:
                         if record[0] <= start <= record[1]:
-                            
                             start = record[1] + 1
                             pbar.update(start - record[0])
                             break
@@ -69,8 +68,14 @@ class MultiThreadDownloader(Downloader):
                             desc=f"{prefix}|{len(success_files)}/{self.blocks_num}|{os.path.basename(self.filepath)}"
                         )
 
-                    worker = Worker(url=self.url, range_start=start, range_end=end, fileobj=fw,
-                                    update_callback=update_pbar, finish_callback=finish_callback, )
+                    worker = Worker(
+                        url=self.url,
+                        range_start=start,
+                        range_end=end,
+                        fileobj=fw,
+                        update_callback=update_pbar,
+                        finish_callback=finish_callback,
+                    )
                     pool.submit(worker=worker)
 
     def check_available(self) -> bool:
