@@ -1,3 +1,3 @@
-from .download import  simple_download
-from .download import  multi_thread_download
-from .download import Worker,WorkerFactory
+from .download import Worker, WorkerFactory, multi_thread_download, simple_download
+
+__all__ = ["simple_download", "multi_thread_download", "Worker", "WorkerFactory"]

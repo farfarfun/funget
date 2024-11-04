@@ -81,7 +81,7 @@ class MultiThreadDownloader(Downloader):
     def check_available(self) -> bool:
         if self.blocks_num < 1:
             return False
-        header = {"Range": f"bytes=0-100"}
+        header = {"Range": "bytes=0-100"}
         with requests.get(self.url, stream=True, headers=header) as req:
             return req.status_code == 206
 

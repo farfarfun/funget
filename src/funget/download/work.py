@@ -5,6 +5,9 @@ from threading import Thread
 from typing import List
 
 import requests
+from funutil import getLogger
+
+logger = getLogger("funget")
 
 
 def _update_callback(total, curser, current):
@@ -90,7 +93,8 @@ class WorkerFactory(object):
                 worker.run()
                 self._task_queue.task_done()
             except Exception as e:
-                pass
+                logger.error(e)
+
             if self._close:
                 break
 
