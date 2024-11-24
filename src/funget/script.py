@@ -8,7 +8,11 @@ def download(args):
     url = args.url
     filepath = f"./{os.path.basename(url)}"
     return multi_thread_download(
-        args.url, filepath=filepath, worker_num=args.worker, block_size=args.block_size, capacity=args.capacity
+        args.url,
+        filepath=filepath,
+        worker_num=args.worker,
+        block_size=args.block_size,
+        capacity=args.capacity,
     )
 
 

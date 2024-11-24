@@ -65,7 +65,12 @@ class Worker:
 
     def get_progress(self):
         """progress for each worker"""
-        return {"curser": self.range_curser, "start": self.range_start, "end": self.range_end, "total": self.size}
+        return {
+            "curser": self.range_curser,
+            "start": self.range_start,
+            "end": self.range_end,
+            "total": self.size,
+        }
 
 
 class WorkerFactory(object):
