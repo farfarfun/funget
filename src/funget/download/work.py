@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
-from queue import Queue
+from queue import Queue, Empty
 from threading import Thread
 from typing import List
 
@@ -98,6 +98,8 @@ class WorkerFactory(object):
                 worker.run()
                 self._task_queue.task_done()
             except Exception as e:
+                if isinstance(e, Empty):
+                    pass
                 logger.error(e)
 
             if self._close:
