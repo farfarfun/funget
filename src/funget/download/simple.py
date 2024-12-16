@@ -6,6 +6,7 @@ from funutil import getLogger
 from tqdm import tqdm
 
 from .core import Downloader
+from funfile.compress.utils import file_tqdm_bar
 
 logger = getLogger("funget")
 
@@ -29,13 +30,10 @@ class SimpleDownloader(Downloader):
             resp = sess.get(self.url, stream=True)
 
             with open(self.filepath, "wb") as file:
-                with tqdm(
+                with file_tqdm_bar(
+                    path=self.filepath,
                     total=self.filesize,
-                    ncols=120,
-                    desc=f"{prefix}{os.path.basename(self.filepath)}",
-                    unit="B",
-                    unit_scale=True,
-                    unit_divisor=1024,
+                    prefix=f"{prefix}",
                 ) as bar:
                     for data in resp.iter_content(chunk_size=chunk_size):
                         bar.update(file.write(data))
