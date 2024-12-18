@@ -4,7 +4,6 @@ import os
 import requests
 from funfile.compress.utils import file_tqdm_bar
 from funutil import getLogger
-from tqdm import tqdm
 
 from .core import Downloader
 
