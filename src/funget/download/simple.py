@@ -2,11 +2,11 @@
 import os
 
 import requests
+from funfile.compress.utils import file_tqdm_bar
 from funutil import getLogger
 from tqdm import tqdm
 
 from .core import Downloader
-from funfile.compress.utils import file_tqdm_bar
 
 logger = getLogger("funget")
 
@@ -15,7 +15,9 @@ class SimpleDownloader(Downloader):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def download(self, prefix="", chunk_size=2048, *args, **kwargs) -> bool:
+    def download(
+        self, prefix="", chunk_size=2048, headers=None, *args, **kwargs
+    ) -> bool:
         prefix = f"{prefix}--" if prefix is not None and len(prefix) > 0 else ""
         if not os.path.exists(os.path.dirname(self.filepath)):
             os.makedirs(os.path.dirname(self.filepath))
@@ -27,7 +29,7 @@ class SimpleDownloader(Downloader):
             logger.info("File exists, and size is same, return.")
             return False
         with requests.Session() as sess:
-            resp = sess.get(self.url, stream=True)
+            resp = sess.get(self.url, stream=True, headers=headers)
 
             with open(self.filepath, "wb") as file:
                 with file_tqdm_bar(
@@ -41,7 +43,9 @@ class SimpleDownloader(Downloader):
         logger.success(f"download success from {self.url} to {self.filepath}")
 
 
-def download(url, filepath, overwrite=False, prefix="", chunk_size=2048):
+def download(
+    url, filepath, overwrite=False, prefix="", chunk_size=2048, *args, **kwargs
+):
     SimpleDownloader(url=url, filepath=filepath, overwrite=overwrite).download(
-        prefix=prefix, chunk_size=chunk_size
+        prefix=prefix, chunk_size=chunk_size, *args, **kwargs
     )
