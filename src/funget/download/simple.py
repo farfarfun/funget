@@ -23,7 +23,7 @@ class SimpleDownloader(Downloader):
             and os.path.exists(self.filepath)
             and os.path.getsize(self.filepath) == self.filesize
         ):
-            logger.info("File exists, and size is same, return.")
+            logger.info(f"File :{self.filepath} exists, and size is same, return.")
             return False
         with requests.Session() as sess:
             resp = sess.get(self.url, stream=True, headers=self.headers)
