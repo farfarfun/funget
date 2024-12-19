@@ -37,7 +37,7 @@ class SimpleDownloader(Downloader):
                     for data in resp.iter_content(chunk_size=chunk_size):
                         bar.update(file.write(data))
 
-        logger.success(f"download success from {self.url} to {self.filepath}")
+        logger.success(f"download success from {self.url[:20]} to {self.filepath}")
 
 
 def download(
