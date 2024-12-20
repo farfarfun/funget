@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
-from queue import Queue, Empty
+from queue import Empty, Queue
 from threading import Thread
 from typing import List
 
@@ -29,6 +29,7 @@ class Worker:
         range_end=None,
         update_callback=None,
         finish_callback=None,
+        header=None,
         chunk_size=2 * 1024 * 1024,
         *args,
         **kwargs,
@@ -36,6 +37,7 @@ class Worker:
         super(Worker, self).__init__(*args, **kwargs)
         self.url = url
         self.fileobj = fileobj
+        self.header = header or {}
         self.range_start = range_start
         self.range_curser = range_start
         self.range_end = range_end or self._get_size()
@@ -51,6 +53,7 @@ class Worker:
 
     def run(self):
         header = {"Range": f"bytes={self.range_curser}-{self.range_end}"}
+        header.update(self.header)
         with requests.get(self.url, stream=True, headers=header) as req:
             if 200 <= req.status_code <= 299:
                 for chunk in req.iter_content(chunk_size=self.chunk_size):

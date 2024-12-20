@@ -25,7 +25,7 @@ wheels = [
 
 [[package]]
 name = "funget"
-version = "1.0.30"
+version = "1.0.31"
 source = { virtual = "." }
 dependencies = [
     { name = "funfile" },
@@ -48,7 +48,7 @@ name = "tqdm"
 version = "4.66.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e9/34/bef135b27fe1864993a5284ad001157ee9b5538e859ac90f5b0e8cc8c9ec/tqdm-4.66.6.tar.gz", hash = "sha256:4bdd694238bef1485ce839d67967ab50af8f9272aab687c0d7702a01da0be090", size = 169533 }
 wheels = [
