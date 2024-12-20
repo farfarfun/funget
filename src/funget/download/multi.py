@@ -5,9 +5,12 @@ import os.path
 import requests
 from funfile import ConcurrentFile
 from funfile.compress.utils import file_tqdm_bar
+from funutil import getLogger
 
 from .core import Downloader
 from .work import Worker, WorkerFactory
+
+logger = getLogger("funget")
 
 
 class MultiDownloader(Downloader):
@@ -44,6 +47,7 @@ class MultiDownloader(Downloader):
             and os.path.exists(self.filepath)
             and self.filesize == os.path.getsize(self.filepath)
         ):
+            logger.info(f"File :{self.filepath} exists, and size is same, return.")
             return False
 
         prefix = prefix if prefix is not None and len(prefix) > 0 else ""
