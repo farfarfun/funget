@@ -97,6 +97,8 @@ class MultiDownloader(Downloader):
                     )
                     pool.submit(worker=worker)
 
+        logger.success(f"download success from {self.url[:20]} to {self.filepath}")
+
     def check_available(self) -> bool:
         if self.blocks_num < 1:
             return False
