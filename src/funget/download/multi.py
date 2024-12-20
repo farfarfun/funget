@@ -96,9 +96,9 @@ class MultiDownloader(Downloader):
     def check_available(self) -> bool:
         if self.blocks_num < 1:
             return False
-        header = {"Range": "bytes=0-100"}
-        header.update(self.header)
-        with requests.get(self.url, stream=True, headers=header) as req:
+        headers = {"Range": "bytes=0-100"}
+        headers.update(self.headers)
+        with requests.get(self.url, stream=True, headers=headers) as req:
             return req.status_code == 206
 
 
