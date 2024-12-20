@@ -1,7 +1,7 @@
-from .multi_thread_download import MultiThreadDownloader
-from .multi_thread_download import download as multi_thread_download
-from .simple import SimpleDownloader
-from .simple import download as simple_download
+from .multi import MultiThreadDownloader
+from .multi import download as multi_thread_download
+from .single import SimpleDownloader
+from .single import download as simple_download
 from .work import Worker, WorkerFactory
 
 __all__ = [

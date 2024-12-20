@@ -10,7 +10,7 @@ from .core import Downloader
 logger = getLogger("funget")
 
 
-class SimpleDownloader(Downloader):
+class SingleDownloader(Downloader):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -43,6 +43,6 @@ class SimpleDownloader(Downloader):
 def download(
     url, filepath, overwrite=False, prefix="", chunk_size=2048, *args, **kwargs
 ):
-    SimpleDownloader(
+    SingleDownloader(
         url=url, filepath=filepath, overwrite=overwrite, *args, **kwargs
     ).download(prefix=prefix, chunk_size=chunk_size, *args, **kwargs)

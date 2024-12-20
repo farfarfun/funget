@@ -103,7 +103,7 @@ class WorkerFactory(object):
             except Exception as e:
                 if isinstance(e, Empty):
                     pass
-                logger.error(e)
+                # logger.error(e)
 
             if self._close:
                 break

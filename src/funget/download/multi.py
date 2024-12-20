@@ -10,9 +10,9 @@ from .core import Downloader
 from .work import Worker, WorkerFactory
 
 
-class MultiThreadDownloader(Downloader):
+class MultiDownloader(Downloader):
     def __init__(self, block_size=100, *args, **kwargs):
-        super(MultiThreadDownloader, self).__init__(*args, **kwargs)
+        super(MultiDownloader, self).__init__(*args, **kwargs)
         self.blocks_num = self.filesize // (block_size * 1024 * 1024)
 
         if not self.check_available():
@@ -108,7 +108,9 @@ def download(
     capacity=100,
     block_size=100,
     prefix="",
+    *args,
+    **kwargs,
 ):
-    MultiThreadDownloader(
+    MultiDownloader(
         url=url, filepath=filepath, overwrite=overwrite, block_size=block_size
     ).download(worker_num=worker_num, capacity=capacity, prefix=prefix)
