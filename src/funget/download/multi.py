@@ -89,6 +89,7 @@ class MultiDownloader(Downloader):
                         fileobj=fw,
                         update_callback=update_pbar,
                         finish_callback=finish_callback,
+                        headers=self.headers,
                     )
                     pool.submit(worker=worker)
 
@@ -96,6 +97,7 @@ class MultiDownloader(Downloader):
         if self.blocks_num < 1:
             return False
         header = {"Range": "bytes=0-100"}
+        header.update(self.header)
         with requests.get(self.url, stream=True, headers=header) as req:
             return req.status_code == 206
 

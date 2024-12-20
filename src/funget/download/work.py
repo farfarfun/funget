@@ -29,7 +29,7 @@ class Worker:
         range_end=None,
         update_callback=None,
         finish_callback=None,
-        header=None,
+        headers=None,
         chunk_size=2 * 1024 * 1024,
         *args,
         **kwargs,
@@ -37,7 +37,7 @@ class Worker:
         super(Worker, self).__init__(*args, **kwargs)
         self.url = url
         self.fileobj = fileobj
-        self.header = header or {}
+        self.headers = headers or {}
         self.range_start = range_start
         self.range_curser = range_start
         self.range_end = range_end or self._get_size()
@@ -52,9 +52,9 @@ class Worker:
             return int(resp.headers.get("content-length", 0))
 
     def run(self):
-        header = {"Range": f"bytes={self.range_curser}-{self.range_end}"}
-        header.update(self.header)
-        with requests.get(self.url, stream=True, headers=header) as req:
+        headers = {"Range": f"bytes={self.range_curser}-{self.range_end}"}
+        headers.update(self.headers)
+        with requests.get(self.url, stream=True, headers=headers) as req:
             if 200 <= req.status_code <= 299:
                 for chunk in req.iter_content(chunk_size=self.chunk_size):
                     _size = self.fileobj.write(chunk=chunk, offset=self.range_curser)
