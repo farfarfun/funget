@@ -16,7 +16,9 @@ class MultiDownloader(Downloader):
         self.blocks_num = self.filesize // (block_size * 1024 * 1024)
 
         if not self.check_available():
-            print(f"{self.filename} this url not support range requests,set blocks_num=1.")
+            print(
+                f"{self.filename} this url not support range requests,set blocks_num=1."
+            )
             self.blocks_num = 1
 
     def __get_range(self):
@@ -34,8 +36,14 @@ class MultiDownloader(Downloader):
             range_list.append((start, end))
         return range_list
 
-    def download(self, worker_num=5, capacity=100, prefix="", overwrite=False, *args, **kwargs):
-        if not overwrite and os.path.exists(self.filepath) and self.filesize == os.path.getsize(self.filepath):
+    def download(
+        self, worker_num=5, capacity=100, prefix="", overwrite=False, *args, **kwargs
+    ):
+        if (
+            not overwrite
+            and os.path.exists(self.filepath)
+            and self.filesize == os.path.getsize(self.filepath)
+        ):
             return False
 
         prefix = prefix if prefix is not None and len(prefix) > 0 else ""
@@ -52,7 +60,9 @@ class MultiDownloader(Downloader):
             pbar.refresh()
 
         with ConcurrentFile(self.filepath, "wb") as fw:
-            with WorkerFactory(worker_num=worker_num, capacity=capacity, timeout=1) as pool:
+            with WorkerFactory(
+                worker_num=worker_num, capacity=capacity, timeout=1
+            ) as pool:
                 for index, (start, end) in enumerate(range_list):
                     for record in fw._writen_data:
                         if record[0] <= start <= record[1]:
@@ -103,6 +113,6 @@ def download(
     *args,
     **kwargs,
 ):
-    MultiDownloader(url=url, filepath=filepath, overwrite=overwrite, block_size=block_size).download(
-        worker_num=worker_num, capacity=capacity, prefix=prefix
-    )
+    MultiDownloader(
+        url=url, filepath=filepath, overwrite=overwrite, block_size=block_size
+    ).download(worker_num=worker_num, capacity=capacity, prefix=prefix)
