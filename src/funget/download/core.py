@@ -16,7 +16,7 @@ class Downloader:
         **kwargs,
     ):
         self.url = url
-        self.headers = headers
+        self.headers = headers or {}
         self.filepath = filepath
         self.overwrite = overwrite
         self.filesize = filesize or self.__get_size()

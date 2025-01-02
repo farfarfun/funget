@@ -1,6 +1,6 @@
 [project]
 name = "funget"
-version = "1.0.41"
+version = "1.0.42"
 description = "funget"
 readme = "README.md"
 requires-python = ">=3.7"
