@@ -12,7 +12,7 @@ class SingleUploader(Uploader):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def upload(self, prefix="", chunk_size=8 * 1024 * 1024, *args, **kwargs) -> bool:
+    def upload(self, prefix="", chunk_size=256 * 1024, *args, **kwargs) -> bool:
         prefix = f"{prefix}--" if prefix is not None and len(prefix) > 0 else ""
 
         with open(self.filepath, "rb") as file:
@@ -44,7 +44,7 @@ def upload(
     filepath,
     overwrite=False,
     prefix="",
-    chunk_size=8 * 1024 * 1024,
+    chunk_size=256 * 1024,
     *args,
     **kwargs,
 ):
