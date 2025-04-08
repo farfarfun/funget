@@ -1,10 +1,10 @@
 [project]
 name = "funget"
-version = "1.0.45"
+version = "1.0.46"
 description = "funget"
 readme = "README.md"
 requires-python = ">=3.7"
-dependencies = [ "funfile>=1.0.15",]
+dependencies = [ "funfile>=1.0.15", "typer-slim>=0.15.2",]
 [[project.authors]]
 name = "niuliangtao"
 email = "farfarfun@qq.com"

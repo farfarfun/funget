@@ -362,7 +362,7 @@ class SqliteTable(BaseTable):
         downer.ignore_limits()
         downer.login_by_cookie()
         # file_name = f'{datetime.now().strftime("%Y%m%d%H%M%S")}-{os.path.basename(self.db_path)}'
-        file_name = f'db-{datetime.now().strftime("%Y%m%d%H%M%S")}-{os.path.basename(self.db_path)}'
+        file_name = f"db-{datetime.now().strftime('%Y%m%d%H%M%S')}-{os.path.basename(self.db_path)}"
         return downer.upload_file(
             file_path=self.db_path, folder_id=self.lanzou_fid, file_name=file_name
         )
