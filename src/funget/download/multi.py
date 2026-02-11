@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 import os
 import os.path
-from typing import Tuple, List
-
+from typing import List, Tuple
 
 import requests
 from funfile import ConcurrentFile
 from funfile.compress.utils import file_tqdm_bar
-from funutil import getLogger
+from funlog import getLogger
 
 from .core import Downloader
 from .work import Worker, WorkerFactory

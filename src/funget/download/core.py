@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
-from typing import Optional, Dict, Any
-
+from typing import Any, Dict, Optional
 
 import requests
+from funlog import getLogger
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from funutil import getLogger
 
 logger = getLogger("funget")
 

@@ -2,7 +2,7 @@ import os
 from typing import Optional
 
 import typer
-from funutil import getLogger
+from funlog import getLogger
 
 from funget import multi_thread_download, simple_download
 from funget.upload import single_upload

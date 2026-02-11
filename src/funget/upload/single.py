@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-from typing import Optional, Generator
+from typing import Generator, Optional
 
 import requests
 from funfile.compress.utils import file_tqdm_bar
-from funutil import getLogger
+from funlog import getLogger
+
 from .core import Uploader
 
 logger = getLogger("funget")

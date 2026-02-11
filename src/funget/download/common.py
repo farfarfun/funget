@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from funutil import getLogger
+from funlog import getLogger
+
 from funget.download.multi import MultiDownloader
 from funget.download.single import SingleDownloader
 

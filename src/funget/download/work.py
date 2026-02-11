@@ -2,13 +2,12 @@
 import time
 from queue import Empty, Queue
 from threading import Thread
-from typing import List, Optional, Callable, Any
+from typing import Any, Callable, List, Optional
 
 import requests
+from funlog import getLogger
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from funutil import getLogger
-
 
 logger = getLogger("funget")
 
