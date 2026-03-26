@@ -98,7 +98,7 @@ class Uploader:
         try:
             # 发送 OPTIONS 请求检查服务器是否支持上传
             resp = self._session.options(
-                self.url, headers=self.headers, timeout=self.timeout
+                self.url, headers=self.headers, timeout=self.timeout, auth=self.auth
             )
             return resp.status_code < 400
         except Exception:
