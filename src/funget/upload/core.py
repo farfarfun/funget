@@ -105,7 +105,7 @@ class Uploader:
             # 如果 OPTIONS 失败，尝试 HEAD 请求
             try:
                 resp = self._session.head(
-                    self.url, headers=self.headers, timeout=self.timeout
+                    self.url, headers=self.headers, timeout=self.timeout, auth=self.auth
                 )
                 return resp.status_code < 500  # 允许4xx错误，因为可能是认证问题
             except Exception:
