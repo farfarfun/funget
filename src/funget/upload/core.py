@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 import requests
 from funlog import getLogger
 from requests.adapters import HTTPAdapter
+from requests.auth import HTTPDigestAuth
 from urllib3.util.retry import Retry
 
 logger = getLogger("funget")
@@ -22,10 +23,12 @@ class Uploader:
         headers: Optional[Dict[str, str]] = None,
         max_retries: int = 3,
         timeout: int = 60,
+        auth: Optional[HTTPDigestAuth] = None,
         *args,
         **kwargs,
     ):
         self.url = url
+        self.auth = auth
         self.headers = headers or {}
         self.filepath = filepath
         self.overwrite = overwrite

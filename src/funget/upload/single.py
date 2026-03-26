@@ -89,6 +89,7 @@ class SingleUploader(Uploader):
                             data=read_file_with_progress(),
                             headers=upload_headers,
                             timeout=self.timeout,
+                            auth=self.auth,
                         )
                     elif method == "POST":
                         # 对于 POST 请求，使用 multipart/form-data
