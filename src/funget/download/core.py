@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 import requests
 from funlog import getLogger
 from requests.adapters import HTTPAdapter
+from requests.auth import HTTPDigestAuth
 from urllib3.util.retry import Retry
 
 logger = getLogger("funget")
@@ -22,10 +23,12 @@ class Downloader:
         headers: Optional[Dict[str, str]] = None,
         max_retries: int = 3,
         timeout: int = 30,
+        auth: Optional[HTTPDigestAuth] = None,
         *args,
         **kwargs,
     ):
         self.url = url
+        self.auth = auth
         self.headers = headers or {}
         self.filepath = filepath
         self.overwrite = overwrite
@@ -93,7 +96,7 @@ class Downloader:
         """验证 URL 是否有效"""
         try:
             resp = self._session.head(
-                self.url, headers=self.headers, timeout=self.timeout
+                self.url, headers=self.headers, timeout=self.timeout, auth=self.auth
             )
             return resp.status_code < 400
         except Exception:

@@ -50,7 +50,11 @@ class SingleDownloader(Downloader):
             try:
                 # 执行下载
                 resp = self._session.get(
-                    self.url, stream=True, headers=self.headers, timeout=self.timeout
+                    self.url,
+                    stream=True,
+                    headers=self.headers,
+                    timeout=self.timeout,
+                    auth=self.auth,
                 )
                 resp.raise_for_status()
 
