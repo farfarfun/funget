@@ -82,7 +82,6 @@ class SingleDownloader(Downloader):
                     )
                     return False
 
-                logger.success(f"Download completed successfully: {self.filepath}")
                 return True
 
             except requests.exceptions.RequestException as e:
