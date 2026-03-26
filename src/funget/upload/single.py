@@ -105,6 +105,7 @@ class SingleUploader(Uploader):
                             files=files,
                             headers=self.headers,  # 不包含 Content-Length，让 requests 自动处理
                             timeout=self.timeout,
+                            auth=self.auth,
                         )
                     else:
                         logger.error(f"Unsupported HTTP method: {method}")
