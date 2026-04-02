@@ -3,7 +3,7 @@ import os
 
 import requests
 from funfile.compress.utils import file_tqdm_bar
-from funlog import getLogger
+from nltlog import getLogger
 
 from .core import Downloader
 
