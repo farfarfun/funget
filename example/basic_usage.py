@@ -1,4 +1,4 @@
-from nltget import multi_thread_download, simple_download
+from funget import multi_thread_download, simple_download
 
 simple_download(
     "https://httpbin.org/bytes/1024",

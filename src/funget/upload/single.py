@@ -3,11 +3,11 @@ import time
 from typing import Dict, Optional
 
 import requests
-from nltfile import file_tqdm_bar
+from funfile import file_tqdm_bar
 from nltlog import getLogger
 from requests.auth import HTTPDigestAuth
 
-logger = getLogger("nltget")
+logger = getLogger("funget")
 
 
 def upload(

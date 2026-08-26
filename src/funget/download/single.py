@@ -1,12 +1,12 @@
 import os
 
 import requests
-from nltfile import file_tqdm_bar
+from funfile import file_tqdm_bar
 from nltlog import getLogger
 
 from .core import Downloader
 
-logger = getLogger("nltget")
+logger = getLogger("funget")
 
 
 class SingleDownloader(Downloader):

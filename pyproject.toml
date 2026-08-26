@@ -3,14 +3,14 @@ requires = [ "setuptools>=83.0.0",]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nltget"
-version = "1.1.62"
+name = "funget"
+version = "1.1.63"
 description = "Concurrent HTTP downloads and uploads for Python"
 readme = "README.md"
 requires-python = ">=3.12"
 keywords = [ "download", "upload", "http", "range-requests",]
 classifiers = [ "License :: OSI Approved :: Apache Software License", "Operating System :: OS Independent", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only",]
-dependencies = [ "nltfile>=1.0.38", "nltlog>=1.1.6", "requests>=2.30.0", "urllib3>=2.0",]
+dependencies = [ "funfile>=1.0.39", "nltlog>=1.1.6", "requests>=2.30.0", "urllib3>=2.0",]
 [[project.authors]]
 name = "牛哥"
 email = "niuliangtao@qq.com"
@@ -31,12 +31,12 @@ email = "farfarfun@qq.com"
 file = "LICENSE"
 
 [project.scripts]
-nltget = "nltget.script:nltget"
+funget = "funget.script:funget"
 
 [project.urls]
-Homepage = "https://github.com/farfarfun/nltget"
-Repository = "https://github.com/farfarfun/nltget"
-Issues = "https://github.com/farfarfun/nltget/issues"
+Homepage = "https://github.com/farfarfun/funget"
+Repository = "https://github.com/farfarfun/funget"
+Issues = "https://github.com/farfarfun/funget/issues"
 
 [tool.ruff]
 target-version = "py310"

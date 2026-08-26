@@ -5,7 +5,7 @@ from nltlog import getLogger
 from .multi import MultiDownloader
 from .single import SingleDownloader
 
-logger = getLogger("nltget")
+logger = getLogger("funget")
 
 
 def download(

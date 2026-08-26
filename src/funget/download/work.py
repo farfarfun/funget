@@ -4,7 +4,7 @@ from typing import Callable, Optional
 import requests
 from nltlog import getLogger
 
-logger = getLogger("nltget")
+logger = getLogger("funget")
 
 
 class Worker:

@@ -7,7 +7,7 @@ from requests.adapters import HTTPAdapter
 from requests.auth import HTTPDigestAuth
 from urllib3.util.retry import Retry
 
-logger = getLogger("nltget")
+logger = getLogger("funget")
 
 
 class Downloader:

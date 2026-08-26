@@ -1,32 +1,34 @@
-# nltget
+# funget
 
 轻量的 Python HTTP 文件传输工具，提供单线程下载、Range 并发下载、PUT/POST 上传、断点续传和命令行接口。
+
+原 `nltget` 已迁回 `funget`；旧包和命令保留兼容入口，新代码请使用 `funget`。
 
 ## 安装
 
 ```bash
-pip install nltget
+pip install funget
 ```
 
-需要 Python 3.8 或更高版本。
+需要 Python 3.12 或更高版本。
 
 ## 命令行
 
 ```bash
-nltget download https://example.com/file.zip -o file.zip
-nltget download https://example.com/large.zip --worker 8 --block-size 50
-nltget upload ./file.zip https://upload.example.com/file.zip
-nltget info https://example.com/file.zip
+funget download https://example.com/file.zip -o file.zip
+funget download https://example.com/large.zip --worker 8 --block-size 50
+funget upload ./file.zip https://upload.example.com/file.zip
+funget info https://example.com/file.zip
 ```
 
-运行 `nltget --help` 或 `nltget <command> --help` 查看完整参数。
+运行 `funget --help` 或 `funget <command> --help` 查看完整参数。
 
 ## Python API
 
 `download()` 会先检查文件大小和 Range 支持：超过 10 MiB 且服务器支持 Range 时并发下载，否则使用单线程。
 
 ```python
-from nltget import download
+from funget import download
 
 ok = download(
     "https://example.com/file.zip",
@@ -38,7 +40,7 @@ ok = download(
 也可以显式选择下载方式：
 
 ```python
-from nltget import multi_thread_download, simple_download
+from funget import multi_thread_download, simple_download
 
 simple_download(url, filepath, chunk_size=64 * 1024)
 multi_thread_download(url, filepath, worker_num=8, block_size=50)
@@ -47,7 +49,7 @@ multi_thread_download(url, filepath, worker_num=8, block_size=50)
 上传支持 PUT 和 multipart POST：
 
 ```python
-from nltget import single_upload
+from funget import single_upload
 
 single_upload(upload_url, filepath, method="PUT")
 single_upload(upload_url, filepath, method="POST")

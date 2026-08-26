@@ -2,13 +2,13 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Tuple
 
-from nltfile import ConcurrentFile, file_tqdm_bar
+from funfile import ConcurrentFile, file_tqdm_bar
 from nltlog import getLogger
 
 from .core import Downloader
 from .work import Worker
 
-logger = getLogger("nltget")
+logger = getLogger("funget")
 
 
 class MultiDownloader(Downloader):

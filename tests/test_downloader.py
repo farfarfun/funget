@@ -7,9 +7,9 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from nltget.download.core import Downloader
-from nltget.download.multi import MultiDownloader
-from nltget.download.single import SingleDownloader
+from funget.download.core import Downloader
+from funget.download.multi import MultiDownloader
+from funget.download.single import SingleDownloader
 
 
 class TestDownloader(unittest.TestCase):
@@ -146,9 +146,9 @@ class TestMultiDownloader(unittest.TestCase):
                 self.assertEqual(len(ranges), 1)
                 self.assertEqual(ranges[0], (0, 999))
 
-    @patch("nltget.download.multi.file_tqdm_bar")
-    @patch("nltget.download.multi.ConcurrentFile")
-    @patch("nltget.download.work.Worker.run", return_value=True)
+    @patch("funget.download.multi.file_tqdm_bar")
+    @patch("funget.download.multi.ConcurrentFile")
+    @patch("funget.download.work.Worker.run", return_value=True)
     def test_download_returns_true(self, mock_run, mock_file, mock_pbar):
         mock_file.return_value.__enter__.return_value._writen_data = []
 

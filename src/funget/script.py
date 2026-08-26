@@ -4,11 +4,11 @@ from urllib.parse import urlsplit
 
 from nltlog import getLogger
 
-from nltget import multi_thread_download, simple_download
-from nltget.download.multi import MultiDownloader
-from nltget.upload import single_upload
+from funget import multi_thread_download, simple_download
+from funget.download.multi import MultiDownloader
+from funget.upload import single_upload
 
-logger = getLogger("nltget")
+logger = getLogger("funget")
 
 
 def _download(args) -> int:
@@ -45,7 +45,7 @@ def _upload(args) -> int:
 
 
 def _info(args) -> int:
-    downloader = MultiDownloader(url=args.url, filepath="/tmp/nltget-info")
+    downloader = MultiDownloader(url=args.url, filepath="/tmp/funget-info")
     info = downloader.get_file_info()
     print(f"URL: {info['url']}")
     print(f"Filename: {info['filename']}")
@@ -58,7 +58,7 @@ def _info(args) -> int:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="nltget", description="Download and upload files"
+        prog="funget", description="Download and upload files"
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -86,7 +86,7 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def nltget() -> int:
+def funget() -> int:
     args = _parser().parse_args()
     try:
         return args.handler(args)

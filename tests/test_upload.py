@@ -3,12 +3,12 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from nltget.upload import single_upload
+from funget.upload import single_upload
 
 
 class TestUpload(unittest.TestCase):
-    @patch("nltget.upload.single.file_tqdm_bar")
-    @patch("nltget.upload.single.requests.Session")
+    @patch("funget.upload.single.file_tqdm_bar")
+    @patch("funget.upload.single.requests.Session")
     def test_put_upload(self, mock_session, mock_pbar):
         response = Mock()
         response.raise_for_status.return_value = None
