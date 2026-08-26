@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "funget"
-version = "1.1.65"
+version = "1.1.67"
 description = "Concurrent HTTP downloads and uploads for Python"
 readme = "README.md"
 requires-python = ">=3.12"
 keywords = [ "download", "upload", "http", "range-requests",]
-classifiers = [ "License :: OSI Approved :: Apache Software License", "Operating System :: OS Independent", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only",]
+classifiers = ["Operating System :: OS Independent", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only"]
 dependencies = [ "funfile>=1.0.39", "nltlog>=1.1.6", "requests>=2.30.0", "urllib3>=2.0",]
 license = "MIT"
 license-files = ["LICENSE"]
