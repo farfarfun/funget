@@ -4,13 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "funget"
-version = "1.1.63"
+version = "1.1.65"
 description = "Concurrent HTTP downloads and uploads for Python"
 readme = "README.md"
 requires-python = ">=3.12"
 keywords = [ "download", "upload", "http", "range-requests",]
 classifiers = [ "License :: OSI Approved :: Apache Software License", "Operating System :: OS Independent", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only",]
 dependencies = [ "funfile>=1.0.39", "nltlog>=1.1.6", "requests>=2.30.0", "urllib3>=2.0",]
+license = "MIT"
+license-files = ["LICENSE"]
 [[project.authors]]
 name = "牛哥"
 email = "niuliangtao@qq.com"
@@ -18,7 +20,6 @@ email = "niuliangtao@qq.com"
 [[project.authors]]
 name = "farfarfun"
 email = "farfarfun@qq.com"
-
 [[project.maintainers]]
 name = "牛哥"
 email = "niuliangtao@qq.com"
@@ -26,20 +27,16 @@ email = "niuliangtao@qq.com"
 [[project.maintainers]]
 name = "farfarfun"
 email = "farfarfun@qq.com"
-
-[project.license]
-file = "LICENSE"
-
 [project.scripts]
 funget = "funget.script:funget"
 
 [project.urls]
-Homepage = "https://github.com/farfarfun/funget"
+Organization = "https://github.com/farfarfun"
 Repository = "https://github.com/farfarfun/funget"
-Issues = "https://github.com/farfarfun/funget/issues"
+Releases = "https://github.com/farfarfun/funget/releases"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py312"
 
 [tool.ruff.lint]
 ignore = [ "BLE001", "FA100",]

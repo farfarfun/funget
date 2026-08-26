@@ -117,9 +117,12 @@ class TestMultiDownloader(unittest.TestCase):
 
     def test_multi_downloader_init(self):
         """测试多线程下载器初始化"""
-        with patch.object(
-            MultiDownloader, "_Downloader__get_size", return_value=104857600
-        ), patch.object(MultiDownloader, "check_available", return_value=True):
+        with (
+            patch.object(
+                MultiDownloader, "_Downloader__get_size", return_value=104857600
+            ),
+            patch.object(MultiDownloader, "check_available", return_value=True),
+        ):
             downloader = MultiDownloader(
                 url=self.test_url, filepath=self.test_filepath, block_size=50
             )
@@ -152,9 +155,10 @@ class TestMultiDownloader(unittest.TestCase):
     def test_download_returns_true(self, mock_run, mock_file, mock_pbar):
         mock_file.return_value.__enter__.return_value._writen_data = []
 
-        with patch.object(
-            MultiDownloader, "_Downloader__get_size", return_value=1024
-        ), patch.object(MultiDownloader, "check_available", return_value=True):
+        with (
+            patch.object(MultiDownloader, "_Downloader__get_size", return_value=1024),
+            patch.object(MultiDownloader, "check_available", return_value=True),
+        ):
             downloader = MultiDownloader(url=self.test_url, filepath=self.test_filepath)
 
         self.assertTrue(downloader.download(worker_num=2))
