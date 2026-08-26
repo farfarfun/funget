@@ -1,6 +1,6 @@
 from typing import Optional
 
-from nltlog import getLogger
+from farlog import getLogger
 
 from .multi import MultiDownloader
 from .single import SingleDownloader

@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Tuple
 
 from funfile import ConcurrentFile, file_tqdm_bar
-from nltlog import getLogger
+from farlog import getLogger
 
 from .core import Downloader
 from .work import Worker

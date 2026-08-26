@@ -2,7 +2,7 @@ import argparse
 import os
 from urllib.parse import urlsplit
 
-from nltlog import getLogger
+from farlog import getLogger
 
 from funget import multi_thread_download, simple_download
 from funget.download.multi import MultiDownloader

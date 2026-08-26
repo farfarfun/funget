@@ -2,7 +2,7 @@ import os
 
 import requests
 from funfile import file_tqdm_bar
-from nltlog import getLogger
+from farlog import getLogger
 
 from .core import Downloader
 

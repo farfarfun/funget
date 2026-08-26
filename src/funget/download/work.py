@@ -2,7 +2,7 @@ import time
 from typing import Callable, Optional
 
 import requests
-from nltlog import getLogger
+from farlog import getLogger
 
 logger = getLogger("funget")
 

@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 import requests
 from funfile import file_tqdm_bar
-from nltlog import getLogger
+from farlog import getLogger
 from requests.auth import HTTPDigestAuth
 
 logger = getLogger("funget")

@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict, Optional
 
 import requests
-from nltlog import getLogger
+from farlog import getLogger
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPDigestAuth
 from urllib3.util.retry import Retry

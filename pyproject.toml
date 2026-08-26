@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 keywords = [ "download", "upload", "http", "range-requests",]
 classifiers = ["Operating System :: OS Independent", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only"]
-dependencies = [ "funfile>=1.0.39", "nltlog>=1.1.6", "requests>=2.30.0", "urllib3>=2.0",]
+dependencies = [ "funfile>=1.0.39", "farlog>=1.1.6", "requests>=2.30.0", "urllib3>=2.0",]
 license = "MIT"
 license-files = ["LICENSE"]
 [[project.authors]]
