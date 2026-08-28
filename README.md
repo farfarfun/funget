@@ -67,4 +67,4 @@ single_upload(upload_url, filepath, method="POST")
 
 ## 许可证
 
-[Apache-2.0](LICENSE)
+[MIT License](LICENSE)
