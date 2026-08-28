@@ -123,17 +123,6 @@ class MultiDownloader(Downloader):
                     results = []
                     workers = []
                     for start, end in range_list:
-                        for record_start, record_end in fw._writen_data:
-                            if record_start <= start <= record_end:
-                                downloaded_bytes = min(record_end, end) - start + 1
-                                start += downloaded_bytes
-                                pbar.update(downloaded_bytes)
-                                break
-
-                        if start > end:
-                            results.append(True)
-                            continue
-
                         workers.append(
                             Worker(
                                 url=self.url,

@@ -153,8 +153,6 @@ class TestMultiDownloader(unittest.TestCase):
     @patch("funget.download.multi.ConcurrentFile")
     @patch("funget.download.work.Worker.run", return_value=True)
     def test_download_returns_true(self, mock_run, mock_file, mock_pbar):
-        mock_file.return_value.__enter__.return_value._writen_data = []
-
         with (
             patch.object(MultiDownloader, "_Downloader__get_size", return_value=1024),
             patch.object(MultiDownloader, "check_available", return_value=True),
