@@ -2,8 +2,6 @@
 
 轻量的 Python HTTP 文件传输工具，提供单线程下载、Range 并发下载、PUT/POST 上传、断点续传和命令行接口。
 
-原 `nltget` 已迁回 `funget`；旧包和命令保留兼容入口，新代码请使用 `funget`。
-
 ## 安装
 
 ```bash
