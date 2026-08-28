@@ -1,14 +1,20 @@
 import os
-from concurrent.futures import ThreadPoolExecutor
-from typing import List, Optional, Tuple
+from queue import Queue
+from typing import Any, List, Optional, Tuple
 
 from funfile import ConcurrentFile, file_tqdm_bar
 from farlog import getLogger
+from funworker import BaseProcessor, WorkerPool
 
 from .core import Downloader
 from .work import Worker
 
 logger = getLogger("funget")
+
+
+class _DownloadProcessor(BaseProcessor):
+    def process(self, item: Worker) -> Any:
+        return item.run()
 
 
 class MultiDownloader(Downloader):
@@ -137,9 +143,23 @@ class MultiDownloader(Downloader):
                             )
                         )
 
-                    # ponytail: bound submission only if huge range counts become real.
-                    with ThreadPoolExecutor(max_workers=worker_num) as pool:
-                        results.extend(pool.map(Worker.run, workers))
+                    input_queue: Queue = Queue()
+                    output_queue: Queue = Queue()
+                    for worker in workers:
+                        input_queue.put(worker)
+
+                    pool = WorkerPool(
+                        _DownloadProcessor(),
+                        input_queue,
+                        output_queue,
+                        num_workers=worker_num,
+                        name="download",
+                    )
+                    pool.start()
+                    pool.stop(drain=True)
+
+                    while not output_queue.empty():
+                        results.append(output_queue.get_nowait())
 
                     completed = sum(results)
                     pbar.set_description(
