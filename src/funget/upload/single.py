@@ -1,10 +1,10 @@
 import os
 import time
-from typing import Dict, Optional
+from collections.abc import Iterator
 
 import requests
-from funfile import file_tqdm_bar
 from farlog import getLogger
+from funfile import file_tqdm_bar
 from requests.auth import HTTPDigestAuth
 
 logger = getLogger("funget")
@@ -19,10 +19,26 @@ def upload(
     method: str = "PUT",
     max_retries: int = 3,
     timeout: int = 60,
-    headers: Optional[Dict[str, str]] = None,
-    auth: Optional[HTTPDigestAuth] = None,
+    headers: dict[str, str] | None = None,
+    auth: HTTPDigestAuth | None = None,
 ) -> bool:
-    """上传单个文件。"""
+    """通过 PUT 或 multipart POST 上传单个文件。
+
+    Args:
+        url: 上传地址。
+        filepath: 本地文件路径。
+        overwrite: 为兼容下载 API 保留，当前不使用。
+        prefix: 进度条前缀。
+        chunk_size: PUT 每次读取的字节数。
+        method: HTTP 方法，支持 `PUT` 和 `POST`。
+        max_retries: 失败后的最大重试次数。
+        timeout: 请求超时秒数。
+        headers: 附加 HTTP 请求头。
+        auth: HTTP Digest 认证对象。
+
+    Returns:
+        上传成功时返回 `True`。
+    """
     del overwrite
     method = method.upper()
     if chunk_size <= 0 or max_retries < 0 or timeout <= 0:
@@ -56,7 +72,7 @@ def upload(
                 with open(filepath, "rb") as file:
                     if method == "PUT":
 
-                        def chunks():
+                        def chunks() -> Iterator[bytes]:
                             while data := file.read(chunk_size):
                                 pbar.update(len(data))
                                 yield data
@@ -74,8 +90,8 @@ def upload(
                             auth=auth,
                         )
                     else:
-                        # ponytail: POST progress updates on completion; add a
-                        # monitored file wrapper only if live feedback matters.
+                        # ponytail: POST 仅在完成后更新进度；确需实时
+                        # 反馈时再增加带监控的文件包装器。
                         response = session.post(
                             url,
                             files={

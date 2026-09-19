@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any
 
 from farlog import getLogger
 
@@ -11,14 +11,14 @@ logger = getLogger("funget")
 def download(
     url: str,
     filepath: str,
-    multi: Optional[bool] = None,
+    multi: bool | None = None,
     overwrite: bool = False,
     prefix: str = "",
     chunk_size: int = 2048,
     worker_num: int = 5,
     block_size: int = 100,
     max_retries: int = 3,
-    **kwargs,
+    **kwargs: Any,
 ) -> bool:
     """智能下载函数，自动选择最佳下载方式
 
@@ -32,6 +32,7 @@ def download(
         worker_num: 工作线程数，仅用于多线程下载
         block_size: 块大小(MB)，仅用于多线程下载
         max_retries: 最大重试次数
+        **kwargs: 传给下载器的其他参数
 
     Returns:
         bool: 下载是否成功
@@ -63,7 +64,7 @@ def download(
             )
 
         if multi:
-            loader = multi_downloader or MultiDownloader(
+            multi_loader = multi_downloader or MultiDownloader(
                 url=url,
                 filepath=filepath,
                 overwrite=overwrite,
@@ -71,16 +72,16 @@ def download(
                 max_retries=max_retries,
                 **kwargs,
             )
-            return loader.download(
+            return multi_loader.download(
                 prefix=prefix,
                 worker_num=worker_num,
                 max_retries=max_retries,
             )
 
-        loader = SingleDownloader(
+        single_loader = SingleDownloader(
             url=url, filepath=filepath, overwrite=overwrite, **kwargs
         )
-        return loader.download(prefix=prefix, chunk_size=chunk_size)
+        return single_loader.download(prefix=prefix, chunk_size=chunk_size)
 
     except Exception as e:
         logger.error(f"Download failed: {e}")

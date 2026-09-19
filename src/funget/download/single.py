@@ -1,8 +1,9 @@
 import os
+from typing import Any
 
 import requests
-from funfile import file_tqdm_bar
 from farlog import getLogger
+from funfile import file_tqdm_bar
 
 from .core import Downloader
 
@@ -10,10 +11,18 @@ logger = getLogger("funget")
 
 
 class SingleDownloader(Downloader):
-    """单线程下载器"""
+    """使用单个流式 GET 请求下载文件。"""
 
     def download(self, prefix: str = "", chunk_size: int = 2048) -> bool:
-        """执行单线程下载"""
+        """执行单线程下载。
+
+        Args:
+            prefix: 进度条前缀。
+            chunk_size: 每次读取的字节数。
+
+        Returns:
+            下载且完整性检查成功时返回 `True`。
+        """
         try:
             if chunk_size <= 0:
                 raise ValueError("chunk_size must be positive")
@@ -105,7 +114,7 @@ def download(
     overwrite: bool = False,
     prefix: str = "",
     chunk_size: int = 2048,
-    **kwargs,
+    **kwargs: Any,
 ) -> bool:
     """单线程下载文件
 
@@ -115,6 +124,7 @@ def download(
         overwrite: 是否覆盖已存在的文件
         prefix: 进度条前缀
         chunk_size: 数据块大小(字节)
+        **kwargs: 传给 `SingleDownloader` 的其他参数
 
     Returns:
         bool: 下载是否成功

@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 import requests
 from farlog import getLogger
@@ -11,19 +11,30 @@ logger = getLogger("funget")
 
 
 class Downloader:
-    """下载器基类"""
+    """管理 HTTP 会话、重试策略和远程文件元数据的下载器基类。
+
+    Args:
+        url: 下载链接。
+        filepath: 本地保存路径。
+        overwrite: 是否覆盖已存在文件。
+        filesize: 已知文件大小；未提供时自动查询。
+        headers: 附加 HTTP 请求头。
+        max_retries: 请求最大重试次数。
+        timeout: 请求超时秒数。
+        auth: HTTP Digest 认证对象。
+    """
 
     def __init__(
         self,
         url: str,
         filepath: str,
         overwrite: bool = False,
-        filesize: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
+        filesize: int | None = None,
+        headers: dict[str, str] | None = None,
         max_retries: int = 3,
         timeout: int = 30,
-        auth: Optional[HTTPDigestAuth] = None,
-    ):
+        auth: HTTPDigestAuth | None = None,
+    ) -> None:
         self.url = url
         self.auth = auth
         self.headers = headers or {}
@@ -49,8 +60,8 @@ class Downloader:
         session.mount("https://", adapter)
         return session
 
-    def download(self, *args, **kwargs) -> bool:
-        """下载文件的抽象方法"""
+    def download(self, *args: Any, **kwargs: Any) -> bool:
+        """下载文件，子类必须实现并返回是否成功。"""
         raise NotImplementedError("Subclasses must implement download method")
 
     def __get_size(self) -> int:
@@ -86,8 +97,8 @@ class Downloader:
             logger.error(f"Failed to get file size: {e}")
             return 0
 
-    def get_file_info(self) -> Dict[str, Any]:
-        """获取文件信息"""
+    def get_file_info(self) -> dict[str, Any]:
+        """返回 URL、本地路径、文件名、大小和覆盖设置。"""
         return {
             "url": self.url,
             "filepath": self.filepath,
@@ -97,7 +108,7 @@ class Downloader:
         }
 
     def validate_url(self) -> bool:
-        """验证 URL 是否有效"""
+        """通过 HEAD 请求验证 URL 是否可访问。"""
         try:
             resp = self._session.head(
                 self.url, headers=self.headers, timeout=self.timeout, auth=self.auth

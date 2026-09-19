@@ -1,9 +1,9 @@
 import os
 from queue import Queue
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
-from funfile import ConcurrentFile, file_tqdm_bar
 from farlog import getLogger
+from funfile import ConcurrentFile, file_tqdm_bar
 from funworker import BaseProcessor, WorkerPool
 
 from .core import Downloader
@@ -18,7 +18,17 @@ class _DownloadProcessor(BaseProcessor):
 
 
 class MultiDownloader(Downloader):
-    def __init__(self, block_size: int = 50, min_block_size: int = 1, **kwargs):
+    """将远程文件分成 Range 请求并发下载。
+
+    Args:
+        block_size: 目标分块大小，单位 MiB。
+        min_block_size: 最小分块大小，单位 MiB。
+        **kwargs: 传给 `Downloader` 的参数。
+    """
+
+    def __init__(
+        self, block_size: int = 50, min_block_size: int = 1, **kwargs: Any
+    ) -> None:
         if block_size <= 0 or min_block_size <= 0:
             raise ValueError("block sizes must be positive")
         super().__init__(**kwargs)
@@ -49,7 +59,7 @@ class MultiDownloader(Downloader):
             )
             self.blocks_num = 1
 
-    def __get_range(self) -> List[Tuple[int, int]]:
+    def __get_range(self) -> list[tuple[int, int]]:
         """计算下载范围列表"""
         if self.filesize <= 0:
             return []
@@ -81,10 +91,20 @@ class MultiDownloader(Downloader):
         self,
         worker_num: int = 5,
         prefix: str = "",
-        overwrite: Optional[bool] = None,
+        overwrite: bool | None = None,
         max_retries: int = 3,
     ) -> bool:
-        """执行多线程下载"""
+        """执行多线程下载。
+
+        Args:
+            worker_num: 并发工作线程数。
+            prefix: 进度条前缀。
+            overwrite: 是否覆盖已存在文件；未提供时使用实例设置。
+            max_retries: 每个分块的最大重试次数。
+
+        Returns:
+            所有分块都下载成功时返回 `True`。
+        """
         overwrite = self.overwrite if overwrite is None else overwrite
 
         try:
@@ -117,7 +137,7 @@ class MultiDownloader(Downloader):
                 prefix=f"{prefix}|0/{len(range_list)}|",
             )
 
-            def update_pbar(total, curser, current):
+            def update_pbar(total: int, curser: int, current: int) -> None:
                 try:
                     pbar.update(current)
                     pbar.refresh()
@@ -143,8 +163,8 @@ class MultiDownloader(Downloader):
                             )
                         )
 
-                    input_queue: Queue = Queue()
-                    output_queue: Queue = Queue()
+                    input_queue: Queue[Worker] = Queue()
+                    output_queue: Queue[Any] = Queue()
                     for worker in workers:
                         input_queue.put(worker)
 
@@ -178,7 +198,7 @@ class MultiDownloader(Downloader):
             return False
 
     def check_available(self) -> bool:
-        """检查服务器是否支持范围请求"""
+        """发送小范围请求，返回服务器是否支持 Range。"""
         if self.blocks_num < 1:
             return False
 
@@ -210,7 +230,7 @@ def download(
     block_size: int = 100,
     prefix: str = "",
     max_retries: int = 3,
-    **kwargs,
+    **kwargs: Any,
 ) -> bool:
     """多线程下载文件
 
@@ -222,6 +242,7 @@ def download(
         block_size: 块大小(MB)
         prefix: 进度条前缀
         max_retries: 最大重试次数
+        **kwargs: 传给 `MultiDownloader` 的其他参数
 
     Returns:
         bool: 下载是否成功

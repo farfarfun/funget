@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
+from funget import download, simple_download
 from funget.download.core import Downloader
 from funget.download.multi import MultiDownloader
 from funget.download.single import SingleDownloader
@@ -184,6 +185,59 @@ class TestMultiDownloader(unittest.TestCase):
             downloader = MultiDownloader(url=self.test_url, filepath=self.test_filepath)
 
             self.assertFalse(downloader.check_available())
+
+
+class TestPublicDownload(unittest.TestCase):
+    @patch("funget.download.common.SingleDownloader")
+    @patch("funget.download.common.MultiDownloader")
+    def test_auto_selects_single_thread_at_threshold(self, mock_multi, mock_single):
+        probe = mock_multi.return_value
+        probe.filesize = 10 * 1024 * 1024
+        probe.supports_range = True
+        mock_single.return_value.download.return_value = True
+
+        self.assertTrue(download("https://example.com/file", "/tmp/file"))
+
+        mock_single.return_value.download.assert_called_once_with(
+            prefix="", chunk_size=2048
+        )
+        probe.download.assert_not_called()
+
+    @patch("funget.download.common.SingleDownloader")
+    @patch("funget.download.common.MultiDownloader")
+    def test_auto_selects_multi_thread_for_large_range_download(
+        self, mock_multi, mock_single
+    ):
+        probe = mock_multi.return_value
+        probe.filesize = 10 * 1024 * 1024 + 1
+        probe.supports_range = True
+        probe.download.return_value = True
+
+        self.assertTrue(download("https://example.com/file", "/tmp/file"))
+
+        probe.download.assert_called_once_with(prefix="", worker_num=5, max_retries=3)
+        mock_single.assert_not_called()
+
+    @patch("funget.download.common.MultiDownloader", side_effect=RuntimeError("boom"))
+    def test_auto_download_returns_false_on_setup_error(self, mock_multi):
+        self.assertFalse(download("https://example.com/file", "/tmp/file"))
+        mock_multi.assert_called_once()
+
+    @patch("funget.download.single.SingleDownloader")
+    def test_simple_download_normal_and_invalid_chunk_size(self, mock_downloader):
+        mock_downloader.return_value.download.return_value = True
+        self.assertTrue(
+            simple_download("https://example.com/file", "/tmp/file", chunk_size=4096)
+        )
+        mock_downloader.return_value.download.assert_called_once_with(
+            prefix="", chunk_size=4096
+        )
+
+        mock_downloader.reset_mock()
+        self.assertFalse(
+            simple_download("https://example.com/file", "/tmp/file", chunk_size=0)
+        )
+        mock_downloader.assert_not_called()
 
 
 if __name__ == "__main__":

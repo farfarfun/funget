@@ -65,6 +65,15 @@ single_upload(upload_url, filepath, method="POST")
 | `headers` | - | 自定义 HTTP 请求头 |
 | `auth` | - | `requests` 认证对象，包括 Digest 认证 |
 
-## 许可证
+---
 
-[MIT License](LICENSE)
+## 关于 farfarfun
+
+[farfarfun](https://github.com/farfarfun) 是一个专注于实用工具库的开源组织，
+涵盖云存储、数据处理、AI、多媒体与开发工具链等方向。
+
+- 🏠 组织主页：<https://github.com/farfarfun>
+- 📦 PyPI：<https://pypi.org/user/niuliangtao/>
+- 📧 联系：farfarfun@qq.com
+
+本项目基于 [MIT](LICENSE) 协议开源。

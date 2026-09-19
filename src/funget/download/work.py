@@ -1,26 +1,43 @@
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 import requests
 from farlog import getLogger
+from requests.auth import HTTPDigestAuth
 
 logger = getLogger("funget")
 
 
 class Worker:
+    """下载一个字节范围并写入指定偏移。
+
+    Args:
+        url: 下载链接。
+        fileobj: 支持按偏移写入的文件对象。
+        range_start: 起始字节偏移。
+        range_end: 结束字节偏移；未提供时根据远程大小确定。
+        update_callback: 每次写入后调用的进度回调。
+        headers: 附加 HTTP 请求头。
+        chunk_size: 每次读取的字节数。
+        max_retries: 失败后的最大重试次数。
+        timeout: 请求超时秒数。
+        auth: HTTP Digest 认证对象。
+    """
+
     def __init__(
         self,
         url: str,
-        fileobj,
+        fileobj: Any,
         range_start: int = 0,
-        range_end: Optional[int] = None,
-        update_callback: Optional[Callable] = None,
-        headers: Optional[dict] = None,
+        range_end: int | None = None,
+        update_callback: Callable[[int, int, int], None] | None = None,
+        headers: dict[str, str] | None = None,
         chunk_size: int = 2 * 1024 * 1024,
         max_retries: int = 3,
         timeout: int = 60,
-        auth=None,
-    ):
+        auth: HTTPDigestAuth | None = None,
+    ) -> None:
         self.url = url
         self.auth = auth
         self.fileobj = fileobj
@@ -48,7 +65,7 @@ class Worker:
             return int(resp.headers.get("content-length", 0))
         except Exception as e:
             logger.warning(f"Failed to get file size via HEAD request: {e}")
-            # fallback to GET request
+            # HEAD 失败时回退到 GET 请求
             try:
                 resp = self._session.get(
                     self.url,
@@ -64,7 +81,7 @@ class Worker:
                 return 0
 
     def run(self) -> bool:
-        """执行下载任务"""
+        """执行下载任务，在重试耗尽后返回 `False`。"""
         try:
             for attempt in range(self.max_retries + 1):
                 try:

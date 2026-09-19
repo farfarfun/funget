@@ -87,6 +87,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def funget() -> int:
+    """解析命令行参数并执行对应命令，返回进程退出码。"""
     args = _parser().parse_args()
     try:
         return args.handler(args)
