@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from funget import download, simple_download
+from funget import download, multi_thread_download, simple_download
 from funget.download.core import Downloader
 from funget.download.multi import MultiDownloader
 from funget.download.single import SingleDownloader
@@ -188,6 +188,24 @@ class TestMultiDownloader(unittest.TestCase):
 
 
 class TestPublicDownload(unittest.TestCase):
+    @patch("funget.download.multi.MultiDownloader")
+    def test_public_multi_thread_download(self, mock_downloader):
+        mock_downloader.return_value.download.return_value = True
+
+        self.assertTrue(
+            multi_thread_download("https://example.com/file", "/tmp/file", worker_num=2)
+        )
+        mock_downloader.return_value.download.assert_called_once_with(
+            prefix="", worker_num=2, max_retries=3
+        )
+
+    @patch("funget.download.multi.MultiDownloader", side_effect=RuntimeError("boom"))
+    def test_public_multi_thread_download_returns_false_on_setup_error(
+        self, mock_downloader
+    ):
+        self.assertFalse(multi_thread_download("https://example.com/file", "/tmp/file"))
+        mock_downloader.assert_called_once()
+
     @patch("funget.download.common.SingleDownloader")
     @patch("funget.download.common.MultiDownloader")
     def test_auto_selects_single_thread_at_threshold(self, mock_multi, mock_single):
