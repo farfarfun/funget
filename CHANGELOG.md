@@ -1,5 +1,14 @@
 # Changelog
 
+## 未发布
+
+### 修复
+
+- README `Python API` 示例中 `simple_download`/`multi_thread_download` 调用缺少
+  `url`/`filepath` 定义，复制运行会触发 `NameError`，改为可直接运行的完整示例。
+- `Downloader.validate_url()` 捕获异常后直接返回 `False`，未留下任何日志或上下文，
+  补充 `logger.warning` 记录失败原因，便于排查。
+
 ## 1.1.70
 
 ### 新增

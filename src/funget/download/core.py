@@ -114,7 +114,8 @@ class Downloader:
                 self.url, headers=self.headers, timeout=self.timeout, auth=self.auth
             )
             return resp.status_code < 400
-        except Exception:
+        except Exception as e:
+            logger.warning(f"URL validation failed for {self.url}: {e}")
             return False
 
     def __del__(self):

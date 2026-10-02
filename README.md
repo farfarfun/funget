@@ -40,8 +40,15 @@ ok = download(
 ```python
 from funget import multi_thread_download, simple_download
 
-simple_download(url, filepath, chunk_size=64 * 1024)
-multi_thread_download(url, filepath, worker_num=8, block_size=50)
+simple_download(
+    "https://example.com/small.zip", "./downloads/small.zip", chunk_size=64 * 1024
+)
+multi_thread_download(
+    "https://example.com/large.zip",
+    "./downloads/large.zip",
+    worker_num=8,
+    block_size=50,
+)
 ```
 
 上传支持 PUT 和 multipart POST：

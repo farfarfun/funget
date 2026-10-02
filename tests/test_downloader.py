@@ -70,7 +70,11 @@ class TestDownloader(unittest.TestCase):
 
         with patch.object(Downloader, "_Downloader__get_size", return_value=1024):
             downloader = Downloader(self.test_url, self.test_filepath)
-            self.assertFalse(downloader.validate_url())
+            with patch("funget.download.core.logger") as mock_logger:
+                self.assertFalse(downloader.validate_url())
+                # 异常不应被静默吞掉，必须留下可定位的日志上下文
+                mock_logger.warning.assert_called_once()
+                self.assertIn(self.test_url, mock_logger.warning.call_args[0][0])
 
 
 class TestSingleDownloader(unittest.TestCase):
