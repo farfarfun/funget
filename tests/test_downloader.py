@@ -65,16 +65,21 @@ class TestDownloader(unittest.TestCase):
             self.assertTrue(downloader.validate_url())
 
         # 模拟失败的请求
-        mock_session.return_value.head.side_effect = Exception("Network error")
+        sensitive_url = "https://user:password@example.com/file?token=secret"
+        mock_session.return_value.head.side_effect = Exception(sensitive_url)
         mock_session.return_value.head.return_value = None
 
         with patch.object(Downloader, "_Downloader__get_size", return_value=1024):
-            downloader = Downloader(self.test_url, self.test_filepath)
+            downloader = Downloader(sensitive_url, self.test_filepath)
             with patch("funget.download.core.logger") as mock_logger:
                 self.assertFalse(downloader.validate_url())
-                # 异常不应被静默吞掉，必须留下可定位的日志上下文
                 mock_logger.warning.assert_called_once()
-                self.assertIn(self.test_url, mock_logger.warning.call_args[0][0])
+                message = mock_logger.warning.call_args[0][0]
+                self.assertIn("https://example.com/file", message)
+                self.assertNotIn("user", message)
+                self.assertNotIn("password", message)
+                self.assertNotIn("token", message)
+                self.assertNotIn("secret", message)
 
 
 class TestSingleDownloader(unittest.TestCase):
@@ -103,6 +108,22 @@ class TestSingleDownloader(unittest.TestCase):
             self.assertIsInstance(downloader, Downloader)
             self.assertEqual(downloader.url, self.test_url)
             self.assertEqual(downloader.filepath, self.test_filepath)
+
+    def test_invalid_url_log_is_redacted(self):
+        sensitive_url = "https://user:password@example.com/file?token=secret"
+        with patch.object(SingleDownloader, "_Downloader__get_size", return_value=1024):
+            downloader = SingleDownloader(sensitive_url, self.test_filepath)
+        with (
+            patch.object(downloader, "validate_url", return_value=False),
+            patch("funget.download.single.logger") as mock_logger,
+        ):
+            self.assertFalse(downloader.download())
+            message = mock_logger.error.call_args[0][0]
+            self.assertIn("https://example.com/file", message)
+            self.assertNotIn("user", message)
+            self.assertNotIn("password", message)
+            self.assertNotIn("token", message)
+            self.assertNotIn("secret", message)
 
 
 class TestMultiDownloader(unittest.TestCase):
