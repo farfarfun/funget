@@ -5,7 +5,7 @@ import requests
 from farlog import getLogger
 from funfile import file_tqdm_bar
 
-from .core import Downloader
+from .core import Downloader, safe_url
 
 logger = getLogger("funget")
 
@@ -44,7 +44,7 @@ class SingleDownloader(Downloader):
 
             # 验证 URL
             if not self.validate_url():
-                logger.error(f"Invalid URL: {self.url}")
+                logger.error(f"Invalid URL: {safe_url(self.url)}")
                 return False
 
             # 检查文件大小

@@ -1,6 +1,6 @@
 # funget
 
-轻量的 Python HTTP 文件传输工具，提供单线程下载、Range 并发下载、PUT/POST 上传、断点续传和命令行接口。
+轻量的 Python HTTP 文件传输工具，提供单线程下载、Range 并发下载、PUT/POST 上传和命令行接口。
 
 ## 安装
 
@@ -54,11 +54,21 @@ multi_thread_download(
 上传支持 PUT 和 multipart POST：
 
 ```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 from funget import single_upload
 
-single_upload(upload_url, filepath, method="PUT")
-single_upload(upload_url, filepath, method="POST")
+with TemporaryDirectory() as directory:
+    filepath = Path(directory) / "example-upload.txt"
+    filepath.write_text("funget upload example\n", encoding="utf-8")
+
+    single_upload("https://httpbin.org/put", str(filepath), method="PUT")
+    single_upload("https://httpbin.org/post", str(filepath), method="POST")
 ```
+
+该示例使用公开测试服务，运行时需要网络连接。生产环境请使用接受相应
+`PUT` 或 multipart `POST` 请求的上传地址。
 
 所有公开 API 均返回 `bool`。常用参数：
 

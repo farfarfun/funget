@@ -1,5 +1,6 @@
 import os
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from farlog import getLogger
@@ -8,6 +9,17 @@ from requests.auth import HTTPDigestAuth
 from urllib3.util.retry import Retry
 
 logger = getLogger("funget")
+
+
+def safe_url(url: str) -> str:
+    """Return a URL suitable for logs, without credentials or query data."""
+    try:
+        parsed = urlsplit(url)
+        if not parsed.hostname:
+            return "<invalid URL>"
+        return urlunsplit((parsed.scheme, parsed.hostname, parsed.path, "", ""))
+    except ValueError:
+        return "<invalid URL>"
 
 
 class Downloader:
@@ -115,7 +127,9 @@ class Downloader:
             )
             return resp.status_code < 400
         except Exception as e:
-            logger.warning(f"URL validation failed for {self.url}: {e}")
+            logger.warning(
+                f"URL validation failed for {safe_url(self.url)}: {type(e).__name__}"
+            )
             return False
 
     def __del__(self):

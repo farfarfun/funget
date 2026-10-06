@@ -21,7 +21,7 @@
 
 ### 变更
 
-- 构建后端迁移至 Hatchling，并提交 `uv.lock` 以保证依赖可复现。
+- 构建后端迁移至 Hatchling；`uv.lock` 已停止跟踪并由 `.gitignore` 忽略。
 - 公开 API 改用 Python 3.12 类型语法并补齐中文 docstring。
 - `farlog` 最低版本提升至 1.1.7。
 
