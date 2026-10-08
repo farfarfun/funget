@@ -2,6 +2,10 @@
 
 ## 未发布
 
+### 变更
+
+- 命令行入口从 `argparse` 迁移至 Typer，保持原有命令和参数名兼容。
+
 ### 修复
 
 - README `Python API` 示例中 `simple_download`/`multi_thread_download` 调用缺少

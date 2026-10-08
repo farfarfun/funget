@@ -1,7 +1,8 @@
-import argparse
 import os
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
+import typer
 from farlog import getLogger
 
 from funget import multi_thread_download, simple_download
@@ -9,91 +10,95 @@ from funget.download.multi import MultiDownloader
 from funget.upload import single_upload
 
 logger = getLogger("funget")
+app = typer.Typer(help="Download and upload files")
 
 
-def _download(args) -> int:
-    output = args.output or os.path.basename(urlsplit(args.url).path) or "download"
-    download_file = simple_download if args.single else multi_thread_download
+def _failed(error: Exception) -> None:
+    logger.error(f"Error: {error}")
+    raise typer.Exit(1) from error
+
+
+@app.command()
+def download(
+    url: str,
+    output: Annotated[str | None, typer.Option("--output", "-o")] = None,
+    worker: Annotated[int, typer.Option("--worker", "-w")] = 10,
+    block_size: Annotated[int, typer.Option("--block-size", "-b")] = 100,
+    max_retries: Annotated[int, typer.Option("--max-retries", "-r")] = 3,
+    single: bool = False,
+    overwrite: bool = False,
+) -> None:
+    """Download a file."""
+    destination = output or os.path.basename(urlsplit(url).path) or "download"
+    download_file = simple_download if single else multi_thread_download
     options = {
-        "url": args.url,
-        "filepath": output,
-        "overwrite": args.overwrite,
-        "max_retries": args.max_retries,
+        "url": url,
+        "filepath": destination,
+        "overwrite": overwrite,
+        "max_retries": max_retries,
     }
-    if not args.single:
-        options.update(worker_num=args.worker, block_size=args.block_size)
-
-    if download_file(**options):
-        logger.success(f"Download completed: {output}")
-        return 0
-    logger.error("Download failed")
-    return 1
-
-
-def _upload(args) -> int:
-    if single_upload(
-        url=args.url,
-        filepath=args.file_path,
-        method=args.method,
-        chunk_size=args.chunk_size,
-        max_retries=args.max_retries,
-    ):
-        logger.success(f"Upload completed: {args.file_path}")
-        return 0
-    logger.error("Upload failed")
-    return 1
+    if not single:
+        options.update(worker_num=worker, block_size=block_size)
+    try:
+        succeeded = download_file(**options)
+    except KeyboardInterrupt:
+        logger.warning("Interrupted")
+        raise typer.Exit(1) from None
+    except Exception as error:
+        _failed(error)
+    if not succeeded:
+        logger.error("Download failed")
+        raise typer.Exit(1)
+    logger.success(f"Download completed: {destination}")
 
 
-def _info(args) -> int:
-    downloader = MultiDownloader(url=args.url, filepath="/tmp/funget-info")
-    info = downloader.get_file_info()
-    print(f"URL: {info['url']}")
-    print(f"Filename: {info['filename']}")
-    print(f"Size: {info['filesize']:,} bytes")
+@app.command()
+def upload(
+    file_path: str,
+    url: str,
+    method: Annotated[Literal["PUT", "POST"], typer.Option("--method", "-m")] = "PUT",
+    chunk_size: Annotated[int, typer.Option("--chunk-size", "-c")] = 256 * 1024,
+    max_retries: Annotated[int, typer.Option("--max-retries", "-r")] = 3,
+) -> None:
+    """Upload a file."""
+    try:
+        succeeded = single_upload(
+            url=url,
+            filepath=file_path,
+            method=method,
+            chunk_size=chunk_size,
+            max_retries=max_retries,
+        )
+    except KeyboardInterrupt:
+        logger.warning("Interrupted")
+        raise typer.Exit(1) from None
+    except Exception as error:
+        _failed(error)
+    if not succeeded:
+        logger.error("Upload failed")
+        raise typer.Exit(1)
+    logger.success(f"Upload completed: {file_path}")
+
+
+@app.command()
+def info(url: str) -> None:
+    """Show remote file information."""
+    try:
+        downloader = MultiDownloader(url=url, filepath="/tmp/funget-info")
+        details = downloader.get_file_info()
+    except KeyboardInterrupt:
+        logger.warning("Interrupted")
+        raise typer.Exit(1) from None
+    except Exception as error:
+        _failed(error)
+    print(f"URL: {details['url']}")
+    print(f"Filename: {details['filename']}")
+    print(f"Size: {details['filesize']:,} bytes")
     print(
         f"Range requests: {'supported' if downloader.supports_range else 'unsupported'}"
     )
-    return 0
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="funget", description="Download and upload files"
-    )
-    commands = parser.add_subparsers(dest="command", required=True)
-
-    download = commands.add_parser("download", help="download a file")
-    download.add_argument("url")
-    download.add_argument("-o", "--output")
-    download.add_argument("-w", "--worker", type=int, default=10)
-    download.add_argument("-b", "--block-size", type=int, default=100)
-    download.add_argument("-r", "--max-retries", type=int, default=3)
-    download.add_argument("--single", action="store_true")
-    download.add_argument("--overwrite", action="store_true")
-    download.set_defaults(handler=_download)
-
-    upload = commands.add_parser("upload", help="upload a file")
-    upload.add_argument("file_path")
-    upload.add_argument("url")
-    upload.add_argument("-m", "--method", choices=("PUT", "POST"), default="PUT")
-    upload.add_argument("-c", "--chunk-size", type=int, default=256 * 1024)
-    upload.add_argument("-r", "--max-retries", type=int, default=3)
-    upload.set_defaults(handler=_upload)
-
-    info = commands.add_parser("info", help="show remote file information")
-    info.add_argument("url")
-    info.set_defaults(handler=_info)
-    return parser
-
-
-def funget() -> int:
-    """解析命令行参数并执行对应命令，返回进程退出码。"""
-    args = _parser().parse_args()
-    try:
-        return args.handler(args)
-    except KeyboardInterrupt:
-        logger.warning("Interrupted")
-        return 1
-    except Exception as e:
-        logger.error(f"Error: {e}")
-        return 1
+def funget() -> None:
+    """Run the command-line interface."""
+    app()

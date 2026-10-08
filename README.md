@@ -19,7 +19,8 @@ funget upload ./file.zip https://upload.example.com/file.zip
 funget info https://example.com/file.zip
 ```
 
-运行 `funget --help` 或 `funget <command> --help` 查看完整参数。
+运行 `funget --help` 或 `funget <command> --help` 查看完整参数。命令行由 Typer
+提供，支持 shell 补全和标准化的参数校验。
 
 ## Python API
 
