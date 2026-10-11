@@ -14,7 +14,7 @@ app = typer.Typer(help="Download and upload files")
 
 
 def _failed(error: Exception) -> None:
-    logger.error(f"Error: {error}")
+    logger.error(f"Error: exception={type(error).__name__}")
     raise typer.Exit(1) from error
 
 

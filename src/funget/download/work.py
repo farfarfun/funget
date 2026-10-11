@@ -6,6 +6,8 @@ import requests
 from farlog import getLogger
 from requests.auth import HTTPDigestAuth
 
+from .core import request_error_context
+
 logger = getLogger("funget")
 
 
@@ -63,8 +65,11 @@ class Worker:
             )
             resp.raise_for_status()
             return int(resp.headers.get("content-length", 0))
-        except Exception as e:
-            logger.warning(f"Failed to get file size via HEAD request: {e}")
+        except Exception as error:
+            logger.warning(
+                "Failed to get file size via HEAD request: "
+                f"{request_error_context(self.url, error)}"
+            )
             # HEAD 失败时回退到 GET 请求
             try:
                 resp = self._session.get(
@@ -76,8 +81,10 @@ class Worker:
                 )
                 resp.raise_for_status()
                 return int(resp.headers.get("content-length", 0))
-            except Exception as e:
-                logger.error(f"Failed to get file size: {e}")
+            except Exception as error:
+                logger.error(
+                    f"Failed to get file size: {request_error_context(self.url, error)}"
+                )
                 return 0
 
     def run(self) -> bool:
@@ -87,8 +94,11 @@ class Worker:
                 try:
                     if self._download_chunk():
                         return True
-                except requests.exceptions.RequestException as e:
-                    logger.warning(f"Download attempt {attempt + 1} failed: {e}")
+                except requests.exceptions.RequestException as error:
+                    logger.warning(
+                        f"Download attempt {attempt + 1} failed: "
+                        f"{request_error_context(self.url, error)}"
+                    )
                 if attempt < self.max_retries:
                     time.sleep(2**attempt)
             return False
@@ -136,7 +146,9 @@ class Worker:
                                     self.size, self.range_curser, _size
                                 )
                         except Exception as e:
-                            logger.error(f"Error writing to file: {e}")
+                            logger.error(
+                                f"Error writing to file: exception={type(e).__name__}"
+                            )
                             raise
 
                         if self.range_curser > self.range_end:
@@ -149,6 +161,6 @@ class Worker:
         except requests.exceptions.ConnectionError:
             logger.warning("Connection error")
             raise
-        except requests.exceptions.HTTPError as e:
-            logger.warning(f"HTTP error: {e}")
+        except requests.exceptions.HTTPError as error:
+            logger.warning(f"HTTP error: {request_error_context(self.url, error)}")
             raise

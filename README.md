@@ -13,10 +13,10 @@ pip install funget
 ## 命令行
 
 ```bash
-funget download https://example.com/file.zip -o file.zip
-funget download https://example.com/large.zip --worker 8 --block-size 50
-funget upload ./file.zip https://upload.example.com/file.zip
-funget info https://example.com/file.zip
+funget download https://httpbin.org/bytes/1024 -o file.bin
+funget download https://httpbin.org/bytes/1024 --worker 8 --block-size 50
+funget upload ./file.bin https://httpbin.org/put
+funget info https://httpbin.org/bytes/1024
 ```
 
 运行 `funget --help` 或 `funget <command> --help` 查看完整参数。命令行由 Typer
@@ -30,8 +30,8 @@ funget info https://example.com/file.zip
 from funget import download
 
 ok = download(
-    "https://example.com/file.zip",
-    "./downloads/file.zip",
+    "https://httpbin.org/bytes/1024",
+    "./downloads/file.bin",
     overwrite=True,
 )
 ```
@@ -42,11 +42,11 @@ ok = download(
 from funget import multi_thread_download, simple_download
 
 simple_download(
-    "https://example.com/small.zip", "./downloads/small.zip", chunk_size=64 * 1024
+    "https://httpbin.org/bytes/1024", "./downloads/small.bin", chunk_size=64 * 1024
 )
 multi_thread_download(
-    "https://example.com/large.zip",
-    "./downloads/large.zip",
+    "https://httpbin.org/bytes/1024",
+    "./downloads/large.bin",
     worker_num=8,
     block_size=50,
 )

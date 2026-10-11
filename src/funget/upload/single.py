@@ -7,6 +7,8 @@ from farlog import getLogger
 from funfile import file_tqdm_bar
 from requests.auth import HTTPDigestAuth
 
+from funget.download.core import request_error_context
+
 logger = getLogger("funget")
 
 
@@ -111,13 +113,16 @@ def upload(
                     pbar.update(filesize)
                 logger.success(f"Upload completed: {filepath}")
                 return True
-            except requests.exceptions.RequestException as e:
-                logger.warning(f"Upload attempt {attempt + 1} failed: {e}")
+            except requests.exceptions.RequestException as error:
+                logger.warning(
+                    f"Upload attempt {attempt + 1} failed: "
+                    f"{request_error_context(url, error)}"
+                )
                 if attempt == max_retries:
                     return False
                 time.sleep(2**attempt)
     except OSError as e:
-        logger.error(f"File I/O error during upload: {e}")
+        logger.error(f"File I/O error during upload: exception={type(e).__name__}")
         return False
     finally:
         pbar.close()

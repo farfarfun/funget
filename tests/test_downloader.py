@@ -7,8 +7,10 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
+import requests
+
 from funget import download, multi_thread_download, simple_download
-from funget.download.core import Downloader
+from funget.download.core import Downloader, request_error_context, safe_url
 from funget.download.multi import MultiDownloader
 from funget.download.single import SingleDownloader
 
@@ -80,6 +82,22 @@ class TestDownloader(unittest.TestCase):
                 self.assertNotIn("password", message)
                 self.assertNotIn("token", message)
                 self.assertNotIn("secret", message)
+
+    def test_request_error_context_redacts_request_details(self):
+        sensitive_url = "https://user:password@example.com/file?token=secret"
+        error = requests.HTTPError(sensitive_url)
+        error.response = Mock(status_code=401)
+
+        message = request_error_context(sensitive_url, error)
+
+        self.assertEqual(safe_url(sensitive_url), "https://example.com/file")
+        self.assertIn("https://example.com/file", message)
+        self.assertIn("HTTPError", message)
+        self.assertIn("status=401", message)
+        self.assertNotIn("user", message)
+        self.assertNotIn("password", message)
+        self.assertNotIn("token", message)
+        self.assertNotIn("secret", message)
 
 
 class TestSingleDownloader(unittest.TestCase):
