@@ -2,6 +2,7 @@ from typing import Any
 
 from farlog import getLogger
 
+from .core import request_error_context
 from .multi import MultiDownloader
 from .single import SingleDownloader
 
@@ -84,5 +85,5 @@ def download(
         return single_loader.download(prefix=prefix, chunk_size=chunk_size)
 
     except Exception as e:
-        logger.error(f"Download failed: {e}")
+        logger.error(f"Download failed: {request_error_context(url, e)}")
         return False

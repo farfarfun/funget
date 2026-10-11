@@ -6,7 +6,7 @@ from farlog import getLogger
 from funfile import ConcurrentFile, file_tqdm_bar
 from funworker import BaseProcessor, WorkerPool
 
-from .core import Downloader
+from .core import Downloader, request_error_context
 from .work import Worker
 
 logger = getLogger("funget")
@@ -142,7 +142,9 @@ class MultiDownloader(Downloader):
                     pbar.update(current)
                     pbar.refresh()
                 except Exception as e:
-                    logger.warning(f"Progress bar update failed: {e}")
+                    logger.warning(
+                        f"Progress bar update failed: exception={type(e).__name__}"
+                    )
 
             try:
                 with ConcurrentFile(self.filepath, "wb") as fw:
@@ -188,13 +190,16 @@ class MultiDownloader(Downloader):
                     return completed == len(range_list)
 
             except Exception as e:
-                logger.error(f"Download failed: {e}")
+                logger.error(f"Download failed: {request_error_context(self.url, e)}")
                 return False
             finally:
                 pbar.close()
 
         except Exception as e:
-            logger.error(f"Unexpected error during download: {e}")
+            logger.error(
+                "Unexpected error during download: "
+                f"{request_error_context(self.url, e)}"
+            )
             return False
 
     def check_available(self) -> bool:
@@ -217,8 +222,11 @@ class MultiDownloader(Downloader):
                     logger.warning(f"Range request returned status {req.status_code}")
                 return req.status_code == 206
 
-        except Exception as e:
-            logger.warning(f"Failed to check range request support: {e}")
+        except Exception as error:
+            logger.warning(
+                "Failed to check range request support: "
+                f"{request_error_context(self.url, error)}"
+            )
             return False
 
 
@@ -265,5 +273,7 @@ def download(
             max_retries=max_retries,
         )
     except Exception as e:
-        logger.error(f"Multi-threaded download failed: {e}")
+        logger.error(
+            f"Multi-threaded download failed: {request_error_context(url, e)}"
+        )
         return False

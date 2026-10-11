@@ -12,7 +12,14 @@ logger = getLogger("funget")
 
 
 def safe_url(url: str) -> str:
-    """Return a URL suitable for logs, without credentials or query data."""
+    """返回可安全写入日志的 URL，移除认证信息和查询参数。
+
+    Args:
+        url: 原始 URL。
+
+    Returns:
+        不含用户名、密码和查询参数的 URL；无效 URL 返回占位文本。
+    """
     try:
         parsed = urlsplit(url)
         if not parsed.hostname:
@@ -20,6 +27,22 @@ def safe_url(url: str) -> str:
         return urlunsplit((parsed.scheme, parsed.hostname, parsed.path, "", ""))
     except ValueError:
         return "<invalid URL>"
+
+
+def request_error_context(url: str, error: BaseException) -> str:
+    """返回不含敏感请求内容的网络错误摘要。
+
+    Args:
+        url: 发起请求的原始 URL。
+        error: 捕获到的请求异常。
+
+    Returns:
+        包含脱敏 URL、异常类型和 HTTP 状态码的日志文本。
+    """
+    response = getattr(error, "response", None)
+    status_code = getattr(response, "status_code", None)
+    status = status_code if isinstance(status_code, int) else "unknown"
+    return f"url={safe_url(url)}, exception={type(error).__name__}, status={status}"
 
 
 class Downloader:
@@ -90,8 +113,11 @@ class Downloader:
             size = int(resp.headers.get("content-length", 0))
             if size > 0:
                 return size
-        except Exception as e:
-            logger.warning(f"HEAD request failed: {e}, trying GET request")
+        except Exception as error:
+            logger.warning(
+                f"HEAD request failed ({request_error_context(self.url, error)}), "
+                "trying GET request"
+            )
 
         try:
             # 如果 HEAD 请求失败，尝试 GET 请求
@@ -105,8 +131,10 @@ class Downloader:
             resp.raise_for_status()
             size = int(resp.headers.get("content-length", 0))
             return size
-        except Exception as e:
-            logger.error(f"Failed to get file size: {e}")
+        except Exception as error:
+            logger.error(
+                f"Failed to get file size: {request_error_context(self.url, error)}"
+            )
             return 0
 
     def get_file_info(self) -> dict[str, Any]:

@@ -5,7 +5,7 @@ import requests
 from farlog import getLogger
 from funfile import file_tqdm_bar
 
-from .core import Downloader, safe_url
+from .core import Downloader, request_error_context, safe_url
 
 logger = getLogger("funget")
 
@@ -93,18 +93,26 @@ class SingleDownloader(Downloader):
 
                 return True
 
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Network error during download: {e}")
+            except requests.exceptions.RequestException as error:
+                logger.error(
+                    "Network error during download: "
+                    f"{request_error_context(self.url, error)}"
+                )
                 return False
             except OSError as e:
-                logger.error(f"File I/O error during download: {e}")
+                logger.error(
+                    f"File I/O error during download: exception={type(e).__name__}"
+                )
                 return False
             finally:
                 if pbar:
                     pbar.close()
 
         except Exception as e:
-            logger.error(f"Unexpected error during single-threaded download: {e}")
+            logger.error(
+                "Unexpected error during single-threaded download: "
+                f"{request_error_context(self.url, e)}"
+            )
             return False
 
 
@@ -138,5 +146,7 @@ def download(
         )
         return downloader.download(prefix=prefix, chunk_size=chunk_size)
     except Exception as e:
-        logger.error(f"Single-threaded download failed: {e}")
+        logger.error(
+            f"Single-threaded download failed: {request_error_context(url, e)}"
+        )
         return False
