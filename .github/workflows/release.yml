@@ -26,7 +26,10 @@ jobs:
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
             manylinux: musllinux_1_2
-          - runner: macos-13
+          # macos-13 已于 2025-12-04 退役，标签不再解析到 runner —— job 会一直
+          # 排队而不是报错。Intel macOS 现在只有 macos-15-intel，它本身也只撑到
+          # 2027 秋季，之后 Actions 不再提供 x86_64 macOS。
+          - runner: macos-15-intel
             target: x86_64-apple-darwin
           - runner: macos-latest
             target: aarch64-apple-darwin
@@ -76,7 +79,10 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-          - runner: macos-13
+          # macos-13 已于 2025-12-04 退役，标签不再解析到 runner —— job 会一直
+          # 排队而不是报错。Intel macOS 现在只有 macos-15-intel，它本身也只撑到
+          # 2027 秋季，之后 Actions 不再提供 x86_64 macOS。
+          - runner: macos-15-intel
             target: x86_64-apple-darwin
           - runner: macos-latest
             target: aarch64-apple-darwin
