@@ -21,6 +21,9 @@ def download(
     timeout: int = 30,
     auth: tuple[str, str] | None = None,
     resume: bool = False,
+    insecure: bool = False,
+    cacert: str | None = None,
+    proxy: str | None = None,
 ) -> bool:
     """智能下载:``multi`` 为 ``None`` 时按「大小 > 10 MiB 且支持 Range」自动选择。"""
 
@@ -38,6 +41,9 @@ def multi_thread_download(
     timeout: int = 30,
     auth: tuple[str, str] | None = None,
     resume: bool = False,
+    insecure: bool = False,
+    cacert: str | None = None,
+    proxy: str | None = None,
 ) -> bool:
     """多线程分块下载。``block_size`` 单位是 MiB。"""
 
@@ -54,6 +60,9 @@ def simple_download(
     max_retries: int = 3,
     auth: tuple[str, str] | None = None,
     resume: bool = False,
+    insecure: bool = False,
+    cacert: str | None = None,
+    proxy: str | None = None,
 ) -> bool:
     """单线程流式下载。"""
 
@@ -68,6 +77,10 @@ def single_upload(
     timeout: int = 60,
     headers: dict[str, str] | None = None,
     auth: tuple[str, str] | None = None,
+    *,
+    insecure: bool = False,
+    cacert: str | None = None,
+    proxy: str | None = None,
 ) -> bool:
     """上传单个文件。``overwrite`` 仅为对齐签名保留,不起作用。"""
 

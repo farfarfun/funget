@@ -6,7 +6,7 @@ use reqwest::header::{HeaderMap, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE};
 use reqwest::{Body, Method};
 use tokio_util::io::ReaderStream;
 
-use crate::client::{Auth, HttpConfig, Transport};
+use crate::client::{Auth, HttpConfig, Transport, TransportOptions};
 use crate::error::Result;
 use crate::progress::Progress;
 use crate::runtime;
@@ -31,6 +31,8 @@ pub struct UploadOptions {
     pub headers: HeaderMap,
     pub auth: Option<Auth>,
     pub progress: bool,
+    /// TLS 信任源、重定向策略、代理 —— 与下载共用同一个结构体。
+    pub transport: TransportOptions,
 }
 
 impl Default for UploadOptions {
@@ -44,6 +46,7 @@ impl Default for UploadOptions {
             headers: HeaderMap::new(),
             auth: None,
             progress: true,
+            transport: TransportOptions::default(),
         }
     }
 }
@@ -111,11 +114,15 @@ async fn run(
     // `{**(headers or {}), "Content-Length": ..., "Content-Type": ...}`,
     // 即 **Content-Length / Content-Type 覆盖用户头**(`upload/single.py:80`)。
     // 这里自己拼好完整的 HeaderMap 再作为 extra 传进去,避开那条规则。
+    //
+    // 传输层那一组(TLS / 重定向 / 代理)反过来必须原样透传:它们是「怎么连」,
+    // 与请求头的优先级无关,上传和下载没有理由不一致。
     let transport = Transport::new(HttpConfig {
         headers: HeaderMap::new(),
         auth: options.auth.clone(),
         timeout: Duration::from_secs(options.timeout as u64),
         max_retries: 0,
+        transport: options.transport.clone(),
     })?;
 
     let prefix = if options.prefix.is_empty() {

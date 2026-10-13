@@ -20,6 +20,11 @@ pub struct Behavior {
     pub truncate_body_at: Option<usize>,
     /// 无视一切逻辑,直接返回这个状态码。
     pub status_override: Option<u16>,
+    /// 对**一切**请求回 302 并把 `Location` 指向这个地址,不返回任何响应体。
+    ///
+    /// 用来起一个纯转发的「源站」:真正的字节落在另一个 `TestServer` 上,于是
+    /// 「哪些请求打到了源站」可以直接用 `request_count()` / `ranges()` 读出来。
+    pub redirect_to: Option<String>,
 }
 
 impl Default for Behavior {
@@ -29,6 +34,7 @@ impl Default for Behavior {
             etag: Some("\"v1\"".to_string()),
             truncate_body_at: None,
             status_override: None,
+            redirect_to: None,
         }
     }
 }
@@ -87,7 +93,13 @@ impl TestServer {
     }
 
     pub fn url(&self) -> String {
-        format!("http://{}/payload.bin", self.addr)
+        self.url_at("payload.bin")
+    }
+
+    /// 同一个服务换个路径的地址。服务端压根不看路径,给的永远是同一份 body ——
+    /// 用来构造「两个地址在 `safe_url()` 眼里不同」的场景(端口不算,它只取 host)。
+    pub fn url_at(&self, path: &str) -> String {
+        format!("http://{}/{path}", self.addr)
     }
 
     pub fn set_behavior(&self, behavior: Behavior) {
@@ -134,6 +146,15 @@ async fn handle(mut stream: TcpStream, state: Arc<State>) {
     if let Some(status) = behavior.status_override {
         let head =
             format!("HTTP/1.1 {status} Forced\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        let _ = stream.write_all(head.as_bytes()).await;
+        return;
+    }
+
+    // 重定向早于 Range/ETag 的一切处理:源站只负责指路,方法和请求头一概不看。
+    if let Some(location) = &behavior.redirect_to {
+        let head = format!(
+            "HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        );
         let _ = stream.write_all(head.as_bytes()).await;
         return;
     }

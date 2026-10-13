@@ -8,7 +8,7 @@ HTTP 下载/上传引擎:Range 并发分块、断点续传、指数退避重试�
 
 ```toml
 [dependencies]
-funget-core = "0.1"
+funget-core = "0.2"
 ```
 
 ## 用法

@@ -121,7 +121,9 @@ pub fn download_auto(
             Some(false) => single::run(&transport, url, filepath, None, options).await,
             None => {
                 let probe = resolve_probe(&transport, url, options).await;
-                let supports_range = crate::probe::probe_range_support(&transport, url).await;
+                let range =
+                    crate::probe::probe_range_support(&transport, probe.request_url(url)).await;
+                let supports_range = range.supports;
                 let use_multi = probe.size > MULTI_THREAD_THRESHOLD && supports_range;
 
                 log::info!(
@@ -131,9 +133,19 @@ pub fn download_auto(
                 );
 
                 if use_multi {
-                    multi::run_prepared(&transport, url, filepath, &probe, supports_range, options)
-                        .await
+                    let chunk_url = range.final_url.as_deref().unwrap_or(probe.request_url(url));
+                    multi::run_prepared(
+                        &transport,
+                        url,
+                        chunk_url,
+                        filepath,
+                        &probe,
+                        supports_range,
+                        options,
+                    )
+                    .await
                 } else {
+                    // 单线程只发一个 GET,reqwest 内部会跟随重定向,不存在不收敛问题。
                     single::run(&transport, url, filepath, Some(probe), options).await
                 }
             }

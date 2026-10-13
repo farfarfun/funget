@@ -72,13 +72,36 @@ pub(crate) async fn run(
     options: &DownloadOptions,
 ) -> bool {
     let probe = super::resolve_probe(transport, url, options).await;
-    let supports_range = probe_range_support(transport, url).await;
-    run_prepared(transport, url, filepath, &probe, supports_range, options).await
+    let range = probe_range_support(transport, probe.request_url(url)).await;
+    run_prepared(
+        transport,
+        url,
+        range.final_url.as_deref().unwrap_or(probe.request_url(url)),
+        filepath,
+        &probe,
+        range.supports,
+        options,
+    )
+    .await
 }
 
+/// `url` 与 `chunk_url` 的分工是这个函数最要紧的一点,改之前先读完这段:
+///
+/// - **`chunk_url`** 是重定向跟随完的地址,所有分块请求都打它。每个 worker 各自
+///   从原始地址重走一遍重定向链,就是 N 条独立的链:N 次多余往返、预签名地址可能
+///   在下载途中过期,理论上还会被分流到不同后端拼出坏文件。
+/// - **`url`** 是调用方给的原始地址,**只用于续传指纹**。指纹必须用它:调用方那个
+///   地址按定义是跨运行稳定的,而解析后的地址不是 —— CDN 每次可能给不同的边缘节点,
+///   有些网关还会把每次请求重定向到一条一次性路径。拿它当指纹就会判定「不是同一份
+///   文件」,续传白白失效。
+///
+///   (指纹存的是 `safe_url()`,query 会被抹掉,所以「同 host 同 path、只换签名」
+///   那种预签名地址即使拿来当指纹也碰巧稳定。真正会踩到的是 host 或 path 变化那两类。)
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn run_prepared(
     transport: &Transport,
     url: &str,
+    chunk_url: &str,
     filepath: &str,
     probe: &SizeProbe,
     supports_range: bool,
@@ -133,6 +156,7 @@ pub(crate) async fn run_prepared(
     let restored = if options.resume {
         resume::load(path).filter(|state| {
             state.matches(
+                // 原始 url,不是 chunk_url —— 指纹里的地址必须跨运行稳定。
                 url,
                 filesize,
                 probe.etag.as_deref(),
@@ -183,6 +207,7 @@ pub(crate) async fn run_prepared(
     };
 
     let mut initial = ResumeState::new(
+        // 同上:写进 sidecar 的必须是原始 url。
         url,
         filesize,
         probe.etag.clone(),
@@ -218,7 +243,8 @@ pub(crate) async fn run_prepared(
         let file = Arc::clone(&file);
         let tracker = Arc::clone(&tracker);
         let progress = progress.clone();
-        let url = url.to_string();
+        // 刻意是 chunk_url 而不是 url:见本函数顶部那段关于两者分工的说明。
+        let url = chunk_url.to_string();
         let retries = options.max_retries;
         async move {
             let ok = fetch_block(

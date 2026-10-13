@@ -1,6 +1,6 @@
 # Changelog
 
-## 未发布
+## 1.1.72
 
 ### 新增
 
@@ -8,9 +8,25 @@
   - [`funget`](https://crates.io/crates/funget) —— 命令行工具，`cargo install funget`。
     版本号与 PyPI 保持一致，三条分发渠道的 `funget --version` 报同一个值。
   - [`funget-core`](https://crates.io/crates/funget-core) —— 下载/上传引擎，可作为
-    Rust 库独立使用。**版本线独立，从 0.1.0 起**：它的 9 个 `pub mod` 当初是为了让
-    CLI 和 PyO3 扩展跨 crate 调用才公开的，并非按公共 Rust API 设计，0.x 期间仍会
-    调整。PyPI 侧的 1.1.x 不受其影响。
+    Rust 库独立使用。**版本线独立**（首发 0.1.0，本次随下面的 API 调整升到 0.2.0）：
+    它的 9 个 `pub mod` 当初是为了让 CLI 和 PyO3 扩展跨 crate 调用才公开的，并非
+    按公共 Rust API 设计，0.x 期间仍会调整。PyPI 侧的 1.1.x 不受其影响。
+- **CLI 补齐 curl 的常用开关**，`download` / `upload` / `info` 三个子命令共用一组：
+  `-H/--header`（可重复）、`-u/--user`、`-A/--user-agent`、`--timeout`、`-x/--proxy`
+  （含 `socks5://`）、`-k/--insecure`、`--cacert`（可重复，支持整条证书链的 bundle）、
+  `--no-native-certs`、`--no-location`、`--max-redirs`。短选项与 curl 对齐。
+  - `download` 和 `upload` 另加 `-s/--silent` 关掉进度条 —— 过去只能靠非 TTY 环境
+    自动关闭，命令行上根本没有开关。
+  - `funget info` 此前用的是 `DownloadOptions::default()`，连一个需要认证的 URL 都
+    查不了，现在同样吃这组开关。
+  - `-H` 和 `-u` 的格式错是**用法错误、退出码 2**。curl 对畸形的 `-H` 是静默忽略的，
+    这里刻意更严：一个拼错的请求头被悄悄丢掉，排查成本远高于当场报错。
+    `-u user:` 是空密码（与 curl 一致），而不带冒号的 `-u user` 是用法错误。
+- 四个下载/上传函数新增三个 **keyword-only** 参数，默认值精确复刻既有行为：
+  `insecure`（默认 `False`）、`cacert`（单个 PEM 路径）、`proxy`。重定向旋钮和
+  `--no-native-certs` 不开放给 Python —— 默认值就是对的，后者是 CLI 的排障逃生口。
+- **`funget info` 在发生重定向时多打一行 `Redirected to: <url>`**，没有重定向时输出
+  仍是原来的四行。
 
 ### 安全
 
@@ -22,8 +38,46 @@
   升级只改了一处写法：`Python::allow_threads` 在 0.27 更名为 `Python::detach`，
   语义和签名完全一致，释放 GIL 的行为不变。
 
+### 修复
+
+- **TLS 此前完全不读系统证书库。** 只开了 reqwest 的 `rustls-tls-webpki-roots`，
+  等于只认 Mozilla 那份固定的根证书列表：企业私有 CA、内网自签证书、公司 MITM 代理
+  证书一律连不上，而同一台机器上的 `curl` 是通的。现在叠加
+  `rustls-tls-native-roots`，两份根证书取**并集**（reqwest 的两个 `#[cfg]` 分支往同
+  一个 `RootCertStore` 里塞证书），`--cacert` 则在此之上继续追加。
+
+  极少数机器的系统证书库里有证书但 rustls 一张都解析不了（被截断过的
+  `ca-certificates` bundle 等），reqwest 会让客户端构造**直接失败**，而这种情况
+  `--cacert` 救不了。新增的 `--no-native-certs` 就是给它们的逃生口，退回 1.1.71
+  的行为（只用内置的 webpki 根证书）。
+- **并发下载会对每个分块各走一遍重定向链。** 分块请求过去打的是调用方给的原始地址，
+  于是 `-w 10` 下一个 302 到预签名地址的链接就是 **10 条各自独立的重定向链**：10 次
+  多余的往返、签名可能在下载中途过期、理论上还可能被分流到不同后端拼出一个坏文件。
+  现在重定向只在 Range 探测那一次 GET 里解析一次，之后所有分块直接打解析后的地址 ——
+  源站每次下载固定只收到 2 个请求（大小探测 + Range 探测），与并发数无关。
+  `funget info` 据此多打的那行 `Redirected to:` 就是这次解析的结果。
+
+  最终地址只从 **GET** 探测里取、不用 HEAD 的：有些 S3 兼容网关对 HEAD 和 GET 给出
+  的重定向目标不同（只给 GET 签名），拿 HEAD 的结果去打分块会 404。
+
+  续传指纹仍然按**原始**地址计算。解析后的地址按定义是跨运行不稳定的（CDN 每次可能
+  给不同的边缘节点，有些网关还会重定向到一条一次性路径），拿它做指纹就会每次都判定
+  「不是同一份文件」、让续传永久失效。
+
 ### 变更
 
+- **CLI 默认发送 `funget/<版本号>` 的 User-Agent**（取 CLI crate 自己的版本号，与
+  PyPI 同号），`-A` 可以覆盖。curl / wget 都发 UA，有些 WAF 会直接 403 掉不带 UA 的
+  请求。**Python 侧的四个函数不设默认 UA，仍然不发这个请求头** —— 它们的线上行为要
+  逐字节冻结，为一个推测性收益改请求头不值得冒险。这条不对称是刻意的。
+- **`funget-core` 升到 0.2.0**，是一次破坏性的 API 调整：新增 `TransportOptions`
+  承载 TLS / 重定向 / 代理 / UA 这组旋钮，`HttpConfig` 与 `UploadOptions` 各加一个
+  `transport` 字段，`probe_range_support` 的返回类型由 `bool` 改为 `RangeProbe`
+  （多带一个解析后的地址）。crates.io 上的 0.1.0 仍是改动前的 API；0.x 期间允许
+  这样调整，PyPI 侧的 1.1.x 和 CLI 的用法都不受影响。
+- 测试：新增自签证书的本地 HTTPS 服务，给 `-k` / `--cacert` 做端到端验证；两条修复
+  各自配了回归测试（都用「还原修复后测试必须变红」确认过）。顺带移除了压根没用上的
+  `wiremock` dev-dependency。工作区测试从 47 项增至 61 项。
 - CLI crate 由 `funget-cli` 改名为 `funget`（目录 `crates/funget-cli/` →
   `crates/funget/`），使 `cargo install funget` 直接装出 `funget` 命令。二进制名、
   命令行参数和行为均无变化。

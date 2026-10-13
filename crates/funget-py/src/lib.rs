@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use funget_core::{
     download_auto, download_multi, download_single, headers_from_pairs, upload, Auth,
-    DownloadOptions, HttpConfig, UploadOptions,
+    DownloadOptions, HttpConfig, TransportOptions, UploadOptions,
 };
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
@@ -21,17 +21,41 @@ use pyo3::types::PyModule;
 /// requests 收到元组走的就是 Basic。Digest 已确认无人使用,这一版不再支持。
 type AuthTuple = Option<(String, String)>;
 
+/// 翻译三个新的 TLS / 代理参数。
+///
+/// 只开放这三个:它们是**环境决定**的,库的调用方自己说不上来默认值该是什么
+/// (私有 CA 的内网 webdav、必须走代理的机器)。重定向策略和
+/// `native_certs` 不开放 —— 前者的默认值就是对的,后者是 CLI 的排障逃生口。
+///
+/// **不设默认 User-Agent**:那四个函数的线上行为必须逐字节冻结,悄悄多发一个请求头
+/// 不属于「不变」。真要设的调用方可以 `headers={"User-Agent": ...}`,它会通过
+/// `merge_headers` 盖掉客户端默认值。
+fn transport_options(
+    insecure: bool,
+    cacert: Option<String>,
+    proxy: Option<String>,
+) -> TransportOptions {
+    TransportOptions {
+        insecure,
+        ca_certs: cacert.map(|path| vec![path.into()]).unwrap_or_default(),
+        proxy,
+        ..TransportOptions::default()
+    }
+}
+
 fn http_config(
     headers: Option<HashMap<String, String>>,
     timeout: u64,
     max_retries: u32,
     auth: AuthTuple,
+    transport: TransportOptions,
 ) -> HttpConfig {
     HttpConfig {
         headers: headers.map(headers_from_pairs).unwrap_or_default(),
         auth: auth.map(|(username, password)| Auth { username, password }),
         timeout: Duration::from_secs(timeout),
         max_retries,
+        transport,
     }
 }
 
@@ -53,6 +77,9 @@ fn http_config(
     timeout = 30,
     auth = None,
     resume = false,
+    insecure = false,
+    cacert = None,
+    proxy = None,
 ))]
 #[allow(clippy::too_many_arguments)]
 fn download(
@@ -71,6 +98,9 @@ fn download(
     timeout: u64,
     auth: AuthTuple,
     resume: bool,
+    insecure: bool,
+    cacert: Option<String>,
+    proxy: Option<String>,
 ) -> bool {
     let options = DownloadOptions {
         overwrite,
@@ -79,7 +109,13 @@ fn download(
         worker_num,
         block_size,
         max_retries,
-        http: http_config(headers, timeout, max_retries, auth),
+        http: http_config(
+            headers,
+            timeout,
+            max_retries,
+            auth,
+            transport_options(insecure, cacert, proxy),
+        ),
         progress: true,
         resume,
         known_size: filesize,
@@ -105,6 +141,9 @@ fn download(
     timeout = 30,
     auth = None,
     resume = false,
+    insecure = false,
+    cacert = None,
+    proxy = None,
 ))]
 #[allow(clippy::too_many_arguments)]
 fn multi_thread_download(
@@ -121,6 +160,9 @@ fn multi_thread_download(
     timeout: u64,
     auth: AuthTuple,
     resume: bool,
+    insecure: bool,
+    cacert: Option<String>,
+    proxy: Option<String>,
 ) -> bool {
     let options = DownloadOptions {
         overwrite,
@@ -128,7 +170,13 @@ fn multi_thread_download(
         worker_num,
         block_size,
         max_retries,
-        http: http_config(headers, timeout, max_retries, auth),
+        http: http_config(
+            headers,
+            timeout,
+            max_retries,
+            auth,
+            transport_options(insecure, cacert, proxy),
+        ),
         resume,
         known_size: filesize,
         ..DownloadOptions::default()
@@ -151,6 +199,9 @@ fn multi_thread_download(
     max_retries = 3,
     auth = None,
     resume = false,
+    insecure = false,
+    cacert = None,
+    proxy = None,
 ))]
 #[allow(clippy::too_many_arguments)]
 fn simple_download(
@@ -166,13 +217,22 @@ fn simple_download(
     max_retries: u32,
     auth: AuthTuple,
     resume: bool,
+    insecure: bool,
+    cacert: Option<String>,
+    proxy: Option<String>,
 ) -> bool {
     let options = DownloadOptions {
         overwrite,
         prefix: prefix.to_string(),
         chunk_size,
         max_retries,
-        http: http_config(headers, timeout, max_retries, auth),
+        http: http_config(
+            headers,
+            timeout,
+            max_retries,
+            auth,
+            transport_options(insecure, cacert, proxy),
+        ),
         resume,
         known_size: filesize,
         ..DownloadOptions::default()
@@ -199,6 +259,12 @@ fn simple_download(
     timeout = 60,
     headers = None,
     auth = None,
+    // `*` 放在原有参数之后:上面那些保持「位置或关键字」不变,新增的三个一律是
+    // keyword-only,与 1.1.71 的 `resume` 同一先例。
+    *,
+    insecure = false,
+    cacert = None,
+    proxy = None,
 ))]
 #[allow(clippy::too_many_arguments)]
 fn single_upload(
@@ -213,6 +279,9 @@ fn single_upload(
     timeout: i64,
     headers: Option<HashMap<String, String>>,
     auth: AuthTuple,
+    insecure: bool,
+    cacert: Option<String>,
+    proxy: Option<String>,
 ) -> bool {
     let _ = overwrite;
     let options = UploadOptions {
@@ -224,6 +293,7 @@ fn single_upload(
         headers: headers.map(headers_from_pairs).unwrap_or_default(),
         auth: auth.map(|(username, password)| Auth { username, password }),
         progress: true,
+        transport: transport_options(insecure, cacert, proxy),
     };
     py.detach(|| upload(url, filepath, &options))
 }

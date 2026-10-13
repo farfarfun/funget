@@ -20,7 +20,7 @@ use std::sync::OnceLock;
 
 use tokio::runtime::Runtime;
 
-pub use client::{headers_from_pairs, Auth, HttpConfig};
+pub use client::{headers_from_pairs, Auth, HttpConfig, TransportOptions};
 pub use download::{
     download_auto, download_multi, download_single, DownloadOptions, MULTI_THREAD_THRESHOLD,
 };
@@ -64,7 +64,7 @@ pub fn file_info(url: &str, filepath: &str, options: &DownloadOptions) -> Result
 
     runtime.block_on(async move {
         let probe = probe::probe_size(&transport, url).await;
-        let supports_range = probe::probe_range_support(&transport, url).await;
+        let range = probe::probe_range_support(&transport, probe.request_url(url)).await;
         Ok(FileInfo {
             url: url.to_string(),
             filepath: filepath.to_string(),
@@ -74,7 +74,9 @@ pub fn file_info(url: &str, filepath: &str, options: &DownloadOptions) -> Result
                 .unwrap_or_default(),
             filesize: probe.size,
             overwrite: options.overwrite,
-            supports_range,
+            supports_range: range.supports,
+            // 两次探测里任意一次跟随过重定向就算,后者优先(它更靠后、更准)。
+            final_url: range.final_url.or(probe.final_url),
         })
     })
 }

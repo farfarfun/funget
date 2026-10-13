@@ -35,7 +35,7 @@ chmod +x funget && sudo mv funget /usr/local/bin/
 
 ```toml
 [dependencies]
-funget-core = "0.1"
+funget-core = "0.2"
 ```
 
 crate 的版本线是独立的 0.x —— 它的公开模块当初是为跨 crate 复用而 `pub` 的，
@@ -52,7 +52,32 @@ funget upload ./file.bin https://httpbin.org/put
 funget info https://httpbin.org/bytes/1024
 ```
 
+`download`、`upload`、`info` 三个子命令共用一组 HTTP 开关，短选项与 `curl` 对齐：
+
+| 开关 | 说明 |
+| --- | --- |
+| `-H, --header LINE` | 追加请求头，格式 `Name: value`，可重复 |
+| `-u, --user USER:PASSWORD` | Basic 认证。按**第一个**冒号切分，`-u user:` 是空密码 |
+| `-A, --user-agent NAME` | 覆盖默认的 `funget/<版本号>` |
+| `--timeout SECONDS` | 连接与读取超时。download 默认 30，upload 默认 60 |
+| `-x, --proxy URL` | 支持 `http://`、`https://`、`socks5://`、`socks5h://` |
+| `-k, --insecure` | 接受无效证书（含主机名不匹配） |
+| `--cacert FILE` | **追加**信任的 PEM 证书，可重复；一个文件里放整条证书链也可以 |
+| `--no-native-certs` | 不读系统证书库，只用内置的 webpki 根证书 |
+| `--no-location` | 不跟随重定向。funget **默认跟随**，所以这里是反向开关（curl 是正向的 `-L`） |
+| `--max-redirs N` | 最多跟随多少跳，默认 10 |
+
+`download` 和 `upload` 另有 `-s, --silent` 关掉进度条（非 TTY 环境本来就不画）。
+不传 `-x` 时沿用 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` 环境变量，与 curl 一致。
+
 运行 `funget --help` 或 `funget <command> --help` 查看完整参数。
+
+### 证书
+
+TLS 信任的是**内置 webpki 根证书与系统证书库的并集**，所以企业私有 CA、内网自签
+证书这类场景只要机器上装好了就能直接用。极少数机器的系统证书库 rustls 一张都解析
+不了（截断过的 `ca-certificates` bundle 等），客户端会构造失败，用
+`--no-native-certs` 退回只用内置根证书。
 
 ## Python API
 
@@ -132,6 +157,16 @@ download("https://example.com/huge.iso", "./huge.iso", resume=True)
 | `auth` | - | `(用户名, 密码)` 二元组，走 Basic 认证 |
 | `resume` | - | 是否启用断点续传，默认 `False` |
 | `filesize` | 字节 | 已知文件大小，传了就跳过 HEAD 探测 |
+| `insecure` | - | 接受无效证书，默认 `False`。对应 CLI 的 `-k` |
+| `cacert` | - | 追加信任的 PEM 证书路径，对应 CLI 的 `--cacert` |
+| `proxy` | - | 代理地址，不传则读 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` |
+
+`insecure`、`cacert`、`proxy` 与 `resume`、`filesize` 一样只能按关键字传
+（keyword-only）—— 原有签名是冻结的，新能力一律往后追加。完整签名见
+[`src/funget/__init__.pyi`](src/funget/__init__.pyi)。
+
+重定向默认跟随，最多 10 跳；Python 侧不开放这两个旋钮，CLI 的 `--no-location` /
+`--max-redirs` 是排障用的。
 
 ---
 

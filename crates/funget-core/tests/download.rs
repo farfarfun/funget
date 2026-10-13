@@ -9,7 +9,9 @@ use std::path::Path;
 
 use common::{payload, Behavior, TestServer};
 use funget_core::client::headers_from_pairs;
-use funget_core::{download_auto, download_multi, download_single, DownloadOptions, HttpConfig};
+use funget_core::{
+    download_auto, download_multi, download_single, DownloadOptions, HttpConfig, TransportOptions,
+};
 
 const MIB: usize = 1024 * 1024;
 
@@ -537,4 +539,210 @@ fn gives_up_after_exhausting_retries() {
             };
         })
     ));
+}
+
+// ---------------------------------------------------------------------------
+// 重定向。以下四条锁的是 1.1.72 修掉的那个缺陷:并发分块曾经让每个 worker 各自
+// 从原始地址重走一遍重定向链。
+// ---------------------------------------------------------------------------
+
+/// 起一对服务:`origin` 只回 302,真正的字节在返回的那个 `TestServer` 上。
+fn redirecting_pair(body: Vec<u8>) -> (TestServer, TestServer) {
+    let origin = TestServer::start(Vec::new());
+    let target = TestServer::start(body);
+    origin.set_behavior(Behavior {
+        redirect_to: Some(target.url()),
+        ..Default::default()
+    });
+    (origin, target)
+}
+
+/// 分块请求打到源站的 Range 请求数 —— 把 Range 支持探测那一发排除掉。
+///
+/// 探测本身就带 `Range: bytes=0-100`(`probe.rs` 里是写死的),它是**解析**重定向的
+/// 那一次请求,正是修复之后仍然应该打到源站的;要数的是分块请求有没有漏过来。
+fn chunk_ranges(server: &TestServer) -> Vec<String> {
+    server
+        .ranges()
+        .into_iter()
+        .filter(|range| range != "bytes=0-100")
+        .collect()
+}
+
+/// 重定向只在探测时解析一次,之后所有分块都打解析后的地址。
+///
+/// 这一条是修复前后的分水岭:改 `worker_num` 不能改变源站收到的请求数。修复前
+/// 源站会收到 `2 + 分块数` 次请求(每个分块一条独立的重定向链)。
+#[test]
+fn redirect_is_resolved_once_regardless_of_concurrency() {
+    let body = payload(5 * MIB);
+    let (origin, target) = redirecting_pair(body.clone());
+    let dir = tempfile::tempdir().expect("创建临时目录");
+
+    for worker_num in [1usize, 8] {
+        let out = dir.path().join(format!("out-{worker_num}.bin"));
+        let before = origin.request_count();
+
+        let ok = download_multi(
+            &origin.url(),
+            out.to_str().expect("路径"),
+            &options(|o| {
+                o.worker_num = worker_num;
+                o.block_size = 1;
+            }),
+        );
+
+        assert!(ok, "worker_num={worker_num} 时下载应当成功");
+        assert_eq!(
+            std::fs::read(&out).expect("读回文件"),
+            body,
+            "worker_num={worker_num} 时内容应当逐字节一致"
+        );
+        // 恒为 2:HEAD 探大小 + GET 探 Range。两者都是解析重定向的请求,与并发数无关。
+        assert_eq!(
+            origin.request_count() - before,
+            2,
+            "worker_num={worker_num} 时源站请求数应当恒为 2,实际 {}",
+            origin.request_count() - before
+        );
+    }
+
+    // 分块请求一个都不许落在源站上。
+    assert!(
+        chunk_ranges(&origin).is_empty(),
+        "源站不该收到分块请求,实际: {:?}",
+        chunk_ranges(&origin)
+    );
+    // 反面确认:分块确实发生了,只是全打在解析后的地址上。
+    assert!(
+        chunk_ranges(&target).len() > 2,
+        "期望多个分块落在解析后的地址上,实际: {:?}",
+        chunk_ranges(&target)
+    );
+}
+
+/// 续传指纹必须记**原始**地址:重定向目标换了也要认出是同一份文件。
+///
+/// 这是「指纹不能用解析后的地址」那条注释的回归网。第二次运行时源站指向另一个
+/// **路径**(而不是只换端口)—— `safe_url()` 只取 host,换端口在它眼里是同一个
+/// 地址,那样这条测试就什么都证明不了了。
+#[test]
+fn resume_survives_a_changed_redirect_target() {
+    let body = payload(4 * MIB);
+    let (origin, first) = redirecting_pair(body.clone());
+    // 每个分块只发 64 KiB 就断线。
+    first.set_behavior(Behavior {
+        truncate_body_at: Some(64 * 1024),
+        ..Default::default()
+    });
+
+    let dir = tempfile::tempdir().expect("创建临时目录");
+    let target = dir.path().join("out.bin");
+    let config = |o: &mut DownloadOptions| {
+        o.worker_num = 4;
+        o.block_size = 1;
+        o.max_retries = 0;
+        o.resume = true;
+        o.http = HttpConfig {
+            max_retries: 0,
+            ..HttpConfig::default()
+        };
+    };
+
+    let ok = download_multi(
+        &origin.url(),
+        target.to_str().expect("路径"),
+        &options(config),
+    );
+    assert!(!ok, "传输被掐断,这一次应当失败");
+    assert!(sidecar(&target).exists(), "失败后应当留下续传状态");
+
+    // 换成一个**完全不同**的后端、而且路径也不同,模拟 CDN 换了边缘节点。
+    let second = TestServer::start(body.clone());
+    origin.set_behavior(Behavior {
+        redirect_to: Some(second.url_at("edge-2/payload.bin")),
+        ..Default::default()
+    });
+
+    let ok = download_multi(
+        &origin.url(),
+        target.to_str().expect("路径"),
+        &options(config),
+    );
+    assert!(ok, "换了重定向目标之后应当补齐并成功");
+    assert_eq!(std::fs::read(&target).expect("读回文件"), body);
+    assert!(!sidecar(&target).exists(), "成功后状态文件应当被删除");
+
+    // 真的命中了续传:每个分块都从断点处继续,没有任何一块从块首重来。
+    // 指纹若改用解析后的地址,这里会看到 `bytes=0-...`(第 0 块从头重下)。
+    let resumed = chunk_ranges(&second);
+    assert!(!resumed.is_empty(), "第二次应当发出分块请求");
+    assert!(
+        resumed.iter().all(|range| !range.starts_with("bytes=0-")),
+        "每个分块都该从断点继续,实际请求: {resumed:?}"
+    );
+}
+
+/// `follow_redirects = false` 时 302 不跟随,下载失败且不留下残缺文件。
+#[test]
+fn redirects_can_be_disabled() {
+    let (origin, _target) = redirecting_pair(payload(5 * MIB));
+    let dir = tempfile::tempdir().expect("创建临时目录");
+    let out = dir.path().join("out.bin");
+
+    assert!(!download_multi(
+        &origin.url(),
+        out.to_str().expect("路径"),
+        &options(|o| {
+            o.max_retries = 0;
+            o.http = HttpConfig {
+                max_retries: 0,
+                transport: TransportOptions {
+                    follow_redirects: false,
+                    ..TransportOptions::default()
+                },
+                ..HttpConfig::default()
+            };
+        })
+    ));
+    assert!(!out.exists(), "探测不到大小就不该落地任何文件");
+}
+
+/// `max_redirects` 真的接到了 reqwest 上:0 跳上限连一跳都不许。
+#[test]
+fn redirect_limit_is_enforced() {
+    let body = payload(5 * MIB);
+    let (origin, _target) = redirecting_pair(body.clone());
+    let dir = tempfile::tempdir().expect("创建临时目录");
+    let config = |max_redirects: usize| {
+        move |o: &mut DownloadOptions| {
+            o.block_size = 1;
+            o.max_retries = 0;
+            o.http = HttpConfig {
+                max_retries: 0,
+                transport: TransportOptions {
+                    max_redirects,
+                    ..TransportOptions::default()
+                },
+                ..HttpConfig::default()
+            };
+        }
+    };
+
+    let blocked = dir.path().join("blocked.bin");
+    assert!(!download_multi(
+        &origin.url(),
+        blocked.to_str().expect("路径"),
+        &options(config(0))
+    ));
+
+    // 同一对服务、同一份配置,只把上限放到 1 就该成功 —— 失败确实来自上限本身,
+    // 而不是这对服务压根连不通。
+    let allowed = dir.path().join("allowed.bin");
+    assert!(download_multi(
+        &origin.url(),
+        allowed.to_str().expect("路径"),
+        &options(config(1))
+    ));
+    assert_eq!(std::fs::read(&allowed).expect("读回文件"), body);
 }

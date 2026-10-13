@@ -24,7 +24,7 @@ env_logger = { version = "0.11", default-features = false, features = ["humantim
 # 必须带 version:crates.io 不收 path 依赖,`cargo publish` 会在打包时把 path
 # 去掉、只留版本约束。缺这一项 `cargo publish -p funget` 直接报
 # 「all dependencies must have a version requirement specified when publishing」。
-funget-core = { path = "crates/funget-core", version = "0.1.0" }
+funget-core = { path = "crates/funget-core", version = "0.2.0" }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 indicatif = "0.17"
 log = "0.4"
@@ -32,7 +32,17 @@ log = "0.4"
 # 去比对 Content-Length,一旦服务端真的压缩就会判定「下载不完整」。不声明支持压缩
 # 直接消掉这个历史隐患,对下载文件也没有损失。
 reqwest = { version = "0.12", default-features = false, features = [
+    # 两套根证书**同时**开。reqwest 的 `async_impl/client.rs` 里这是两个独立的
+    # `#[cfg]` 分支,往同一个 `RootCertStore` 里塞证书,开关默认都是 true,所以
+    # 开了就是取并集 —— 不需要任何代码配合。
+    #
+    # 只开 webpki 等于「只信 Mozilla 那份固定列表」:企业私有 CA、内网自签、公司
+    # MITM 代理的证书一律连不上,而同一台机器上的 curl 是通的(它读系统证书库)。
     "rustls-tls-webpki-roots",
+    "rustls-tls-native-roots",
+    # socks 的实现内联在 reqwest 的 connect.rs 里,这个 feature 不拉任何新 crate,
+    # 换来 `--proxy socks5://` / `socks5h://` 的支持。
+    "socks",
     "stream",
     "multipart",
     "http2",

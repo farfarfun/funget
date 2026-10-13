@@ -4,9 +4,21 @@
 //! 都调用这里的 [`run`],两条分发渠道不存在两套 CLI 实现。
 
 use std::ffi::OsString;
+use std::path::PathBuf;
+use std::time::Duration;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use funget_core::{DownloadOptions, HttpConfig, UploadOptions};
+use funget_core::{
+    headers_from_pairs, Auth, DownloadOptions, HttpConfig, TransportOptions, UploadOptions,
+};
+
+/// 本 CLI 默认发出的 User-Agent。
+///
+/// 取自己 crate 的版本号(与 PyPI 同号),而不是 funget-core 的 —— 后者走独立的
+/// 0.x 版本线,报出去会让人困惑。curl / wget 都发 UA,有些 WAF 会直接 403 掉不带
+/// UA 的请求,所以 CLI 这边设上默认值;**PyO3 扩展不设**,那四个函数的线上行为
+/// 要逐字节冻结。
+const USER_AGENT: &str = concat!("funget/", env!("CARGO_PKG_VERSION"));
 
 // 注意:凡是会出现在 `--help` 里的文案一律用英文,和 1.1.70 的 typer CLI 保持一致。
 // 中文的设计说明走普通 `//` 注释,不要写成 `///` 文档注释 —— clap 会把文档注释
@@ -29,7 +41,122 @@ pub enum Command {
     /// Upload a file.
     Upload(UploadArgs),
     /// Show remote file information.
-    Info { url: String },
+    Info(InfoArgs),
+}
+
+// 三个子命令共用的 HTTP 开关,用 `#[command(flatten)]` 摊进各自的 Args。
+// 连 `info` 也给:它过去用的是 `DownloadOptions::default()`,连一个需要认证的
+// URL 都查不了。
+#[derive(Args, Debug)]
+pub struct HttpArgs {
+    /// Extra request header, as "Name: value". Repeatable.
+    #[arg(short = 'H', long = "header", value_name = "LINE", value_parser = parse_header)]
+    pub headers: Vec<(String, String)>,
+
+    /// Credentials for Basic auth, as "user:password".
+    #[arg(short = 'u', long = "user", value_name = "USER:PASSWORD", value_parser = parse_user)]
+    pub user: Option<Auth>,
+
+    /// User-Agent to send.
+    #[arg(short = 'A', long, value_name = "NAME", default_value = USER_AGENT)]
+    pub user_agent: String,
+
+    // 刻意不写 default_value_t:download 的默认超时是 30 秒、upload 是 60 秒,
+    // 在共享结构体里写死一个值会把 upload 的 60 悄悄改掉。各子命令自己 unwrap_or。
+    /// Connect and read timeout in seconds.
+    #[arg(long, value_name = "SECONDS")]
+    pub timeout: Option<u64>,
+
+    /// Proxy to use, e.g. http://host:3128 or socks5://host:1080.
+    #[arg(short = 'x', long, value_name = "URL")]
+    pub proxy: Option<String>,
+
+    /// Allow TLS connections with invalid certificates.
+    #[arg(short = 'k', long)]
+    pub insecure: bool,
+
+    /// Extra CA certificate in PEM format. Repeatable.
+    #[arg(long, value_name = "FILE")]
+    pub cacert: Vec<PathBuf>,
+
+    // 逃生口:reqwest 在「系统证书库里有证书但一张都解析不了」时会让客户端
+    // 构造失败。那种机器用这个开关退回 1.1.71 的行为(只用内置的 webpki 根)。
+    /// Do not read the system certificate store.
+    #[arg(long)]
+    pub no_native_certs: bool,
+
+    // funget 默认跟随重定向(与 wget 一致),所以要提供的是**反向**开关 ——
+    // curl 那边是正向的 `-L`,因为它默认不跟随。
+    /// Do not follow redirects.
+    #[arg(long)]
+    pub no_location: bool,
+
+    /// Maximum number of redirects to follow.
+    #[arg(long, value_name = "N", default_value_t = 10)]
+    pub max_redirs: usize,
+}
+
+impl HttpArgs {
+    fn transport(&self) -> TransportOptions {
+        TransportOptions {
+            insecure: self.insecure,
+            ca_certs: self.cacert.clone(),
+            native_certs: !self.no_native_certs,
+            follow_redirects: !self.no_location,
+            max_redirects: self.max_redirs,
+            proxy: self.proxy.clone(),
+            user_agent: Some(self.user_agent.clone()),
+        }
+    }
+
+    /// `default_timeout` 由子命令给:download 30 秒、upload 60 秒,与各自的
+    /// Python 版默认值一致。
+    fn http_config(&self, max_retries: u32, default_timeout: u64) -> HttpConfig {
+        HttpConfig {
+            headers: headers_from_pairs(self.headers.iter().map(|(k, v)| (k, v))),
+            auth: self.user.clone(),
+            timeout: Duration::from_secs(self.timeout.unwrap_or(default_timeout)),
+            max_retries,
+            transport: self.transport(),
+        }
+    }
+}
+
+/// `-H "Name: value"`。按**第一个**冒号切分,值两侧的空格去掉。
+///
+/// 返回 `Result` 让 clap 自己报错:格式错于是成为**用法错误、退出码 2**,而不是
+/// 跑起来之后才失败。curl 对畸形的 `-H` 是静默忽略的,这里刻意更严 —— 一个拼错的
+/// 请求头被悄悄丢掉,排查成本远高于当场报错。
+fn parse_header(raw: &str) -> std::result::Result<(String, String), String> {
+    let (name, value) = raw
+        .split_once(':')
+        .ok_or_else(|| format!("expected \"Name: value\", got {raw:?}"))?;
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(format!("header name is empty in {raw:?}"));
+    }
+    Ok((name.to_string(), value.trim().to_string()))
+}
+
+/// `-u user:password`。同样按第一个冒号切分,所以 `-u user:` 是**空密码**
+/// (curl 的写法),而不带冒号的 `-u user` 是用法错误 —— 我们没有 TTY 提示密码的
+/// 能力,把它当成空密码静默通过只会让人以为认证生效了。
+fn parse_user(raw: &str) -> std::result::Result<Auth, String> {
+    let (username, password) = raw
+        .split_once(':')
+        .ok_or_else(|| format!("expected \"user:password\", got {raw:?}"))?;
+    Ok(Auth {
+        username: username.to_string(),
+        password: password.to_string(),
+    })
+}
+
+#[derive(Args, Debug)]
+pub struct InfoArgs {
+    pub url: String,
+
+    #[command(flatten)]
+    pub http: HttpArgs,
 }
 
 #[derive(Args, Debug)]
@@ -65,6 +192,13 @@ pub struct DownloadArgs {
     /// Resume an interrupted download instead of starting over.
     #[arg(long)]
     pub resume: bool,
+
+    /// Do not draw the progress bar.
+    #[arg(short = 's', long)]
+    pub silent: bool,
+
+    #[command(flatten)]
+    pub http: HttpArgs,
 }
 
 // 做成枚举而不是自由字符串,是为了保住 Python CLI 的那条行为:typer 用
@@ -109,6 +243,13 @@ pub struct UploadArgs {
     /// Retries before giving up.
     #[arg(short = 'r', long, default_value_t = 3)]
     pub max_retries: i64,
+
+    /// Do not draw the progress bar.
+    #[arg(short = 's', long)]
+    pub silent: bool,
+
+    #[command(flatten)]
+    pub http: HttpArgs,
 }
 
 /// 解析参数并执行,返回进程退出码。
@@ -132,7 +273,7 @@ where
     match cli.command {
         Command::Download(args) => download(args),
         Command::Upload(args) => upload(args),
-        Command::Info { url } => info(&url),
+        Command::Info(args) => info(args),
     }
 }
 
@@ -154,10 +295,8 @@ fn download(args: DownloadArgs) -> i32 {
         block_size: args.block_size,
         max_retries: args.max_retries,
         resume: args.resume,
-        http: HttpConfig {
-            max_retries: args.max_retries,
-            ..HttpConfig::default()
-        },
+        progress: !args.silent,
+        http: args.http.http_config(args.max_retries, 30),
         ..DownloadOptions::default()
     };
 
@@ -181,6 +320,14 @@ fn upload(args: UploadArgs) -> i32 {
         method: args.method.as_str().to_string(),
         chunk_size: args.chunk_size,
         max_retries: args.max_retries,
+        // 上传侧的用户请求头单独存在 `UploadOptions.headers` 里,不走 HttpConfig ——
+        // 那边的优先级是「配置头覆盖专属头」,而上传要求 Content-Length /
+        // Content-Type 覆盖用户头,正好相反(见 funget-core/src/upload.rs)。
+        headers: headers_from_pairs(args.http.headers.iter().map(|(k, v)| (k, v))),
+        auth: args.http.user.clone(),
+        timeout: args.http.timeout.unwrap_or(60) as i64,
+        progress: !args.silent,
+        transport: args.http.transport(),
         ..UploadOptions::default()
     };
 
@@ -193,14 +340,24 @@ fn upload(args: UploadArgs) -> i32 {
     }
 }
 
-fn info(url: &str) -> i32 {
+fn info(args: InfoArgs) -> i32 {
     // 文件名从 URL 推导。Python 版这里把 filepath 写死成 `/tmp/funget-info`,
     // 于是 `Filename:` 永远打印 `funget-info` —— 那是 bug,不是契约,这版改掉了
     // (见 CHANGELOG 的「有意偏离」)。输出的四行格式保持不变。
+    let url = args.url.as_str();
     let filename = default_filename(url);
-    match funget_core::file_info(url, &filename, &DownloadOptions::default()) {
+    let options = DownloadOptions {
+        http: args.http.http_config(3, 30),
+        ..DownloadOptions::default()
+    };
+    match funget_core::file_info(url, &filename, &options) {
         Ok(details) => {
             println!("URL: {}", details.url);
+            // 只在真的发生了重定向时多打这一行:没重定向的输出仍是原来的四行。
+            // 过去这种情况下只打原始地址、对落到哪里一个字都不说,排查起来很难受。
+            if let Some(final_url) = &details.final_url {
+                println!("Redirected to: {final_url}");
+            }
             println!("Filename: {}", details.filename);
             println!("Size: {} bytes", thousands(details.filesize));
             println!(
@@ -365,6 +522,131 @@ mod tests {
             );
             pending.extend(current.get_subcommands().cloned());
         }
+    }
+
+    /// 新增的 curl 风味开关全部解析到 `TransportOptions` / `HttpConfig` 上。
+    #[test]
+    fn parses_the_curl_style_http_flags() {
+        let cli = Cli::try_parse_from([
+            "funget",
+            "download",
+            "http://x/y.bin",
+            "-H",
+            "X-Token: abc",
+            "-H",
+            "Accept:application/json",
+            "-u",
+            "alice:s3cret",
+            "-A",
+            "me/1.0",
+            "--timeout",
+            "7",
+            "-x",
+            "socks5://127.0.0.1:1080",
+            "-k",
+            "--cacert",
+            "/tmp/a.pem",
+            "--no-native-certs",
+            "--no-location",
+            "--max-redirs",
+            "3",
+            "-s",
+        ])
+        .expect("参数应当解析成功");
+
+        let Command::Download(args) = cli.command else {
+            panic!("应当解析为 download 子命令");
+        };
+        assert!(args.silent);
+        assert_eq!(
+            args.http.headers,
+            vec![
+                ("X-Token".to_string(), "abc".to_string()),
+                // 冒号后没有空格也要认,值两侧的空格一律去掉。
+                ("Accept".to_string(), "application/json".to_string()),
+            ]
+        );
+        let user = args.http.user.as_ref().expect("应当解析出凭据");
+        assert_eq!(
+            (user.username.as_str(), user.password.as_str()),
+            ("alice", "s3cret")
+        );
+
+        let transport = args.http.transport();
+        assert!(transport.insecure);
+        assert!(!transport.native_certs);
+        assert!(!transport.follow_redirects);
+        assert_eq!(transport.max_redirects, 3);
+        assert_eq!(transport.proxy.as_deref(), Some("socks5://127.0.0.1:1080"));
+        assert_eq!(transport.user_agent.as_deref(), Some("me/1.0"));
+        assert_eq!(transport.ca_certs, vec![PathBuf::from("/tmp/a.pem")]);
+
+        assert_eq!(args.http.http_config(3, 30).timeout, Duration::from_secs(7));
+    }
+
+    /// 不传 `--timeout` 时各子命令用自己的默认值 —— 共享结构体不能把 upload 的
+    /// 60 秒悄悄改成 download 的 30 秒。
+    #[test]
+    fn timeout_defaults_stay_per_subcommand() {
+        let cli = Cli::try_parse_from(["funget", "download", "http://x/y.bin"]).expect("解析");
+        let Command::Download(args) = cli.command else {
+            panic!("应当解析为 download 子命令");
+        };
+        assert!(args.http.timeout.is_none());
+        assert_eq!(
+            args.http.http_config(3, 30).timeout,
+            Duration::from_secs(30)
+        );
+
+        let cli = Cli::try_parse_from(["funget", "upload", "a.bin", "http://x/u"]).expect("解析");
+        let Command::Upload(args) = cli.command else {
+            panic!("应当解析为 upload 子命令");
+        };
+        assert_eq!(args.http.timeout.unwrap_or(60), 60);
+    }
+
+    /// 默认不带 `-A` 时发自己的版本号,且默认跟随重定向(与 wget 一致)。
+    #[test]
+    fn transport_defaults_match_the_documented_behaviour() {
+        let cli = Cli::try_parse_from(["funget", "info", "http://x/y.bin"]).expect("解析");
+        let Command::Info(args) = cli.command else {
+            panic!("应当解析为 info 子命令");
+        };
+        let transport = args.http.transport();
+        assert_eq!(transport.user_agent.as_deref(), Some(USER_AGENT));
+        assert!(transport.user_agent.expect("UA").starts_with("funget/"));
+        assert!(transport.follow_redirects);
+        assert_eq!(transport.max_redirects, 10);
+        assert!(transport.native_certs && !transport.insecure);
+        assert!(transport.proxy.is_none() && transport.ca_certs.is_empty());
+    }
+
+    /// 畸形的 `-H` / `-u` 是**用法错误、退出码 2**,而不是跑起来之后才失败。
+    /// curl 对畸形的 `-H` 是静默忽略的,这里刻意更严。
+    #[test]
+    fn malformed_header_or_credentials_are_usage_errors() {
+        for bad in [
+            vec!["funget", "download", "http://x/y.bin", "-H", "no-colon"],
+            // 冒号前为空 → 请求头没有名字。
+            vec!["funget", "download", "http://x/y.bin", "-H", ": value"],
+            vec!["funget", "download", "http://x/y.bin", "-u", "nocolon"],
+            vec!["funget", "info", "http://x/y.bin", "-H", "no-colon"],
+            vec!["funget", "upload", "a.bin", "http://x/u", "-u", "nocolon"],
+        ] {
+            assert_eq!(run(bad.clone()), 2, "{bad:?} 应当是用法错误");
+        }
+
+        // `-u user:` 是空密码(curl 的写法),不是错误。
+        let cli = Cli::try_parse_from(["funget", "download", "http://x/y.bin", "-u", "bob:"])
+            .expect("空密码应当被接受");
+        let Command::Download(args) = cli.command else {
+            panic!("应当解析为 download 子命令");
+        };
+        let user = args.http.user.expect("应当解析出凭据");
+        assert_eq!(
+            (user.username.as_str(), user.password.as_str()),
+            ("bob", "")
+        );
     }
 
     /// 小写方法名也接受 —— 比 typer 的 Literal 宽松一点,但不影响上面那条用法错误。
