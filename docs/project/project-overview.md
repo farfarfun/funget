@@ -92,6 +92,11 @@
   还带 4 个 tarball、两个架构的 `.deb` 和 `SHA256SUMS`：`apt` 与 `brew` 两条渠道由
   组织的共享包仓库 [`farfarfun/packages`](https://github.com/farfarfun/packages)
   拉取这些资产后统一发布，本仓库为此不需要任何 secret。详见 `packaging/README.md`。
+- 镜像：`sync-gitee.yml` 把仓库和 **Release 附件**一起推到 Gitee。组织级的
+  `action-daily` 每两小时也镜像一遍，但它只搬 git refs —— funget 的交付物全在附件
+  里，所以这里单独留一份，并盯着 `Release` workflow 跑完才同步（GITHUB_TOKEN 建的
+  release 不会触发 `on: release`）。用的是组织级的 `GITEE_RSA_PRIVATE_KEY` 和
+  `GITEE_TOKEN`，仓库本身仍然没有自己的 secret。
 
 ## 相关文档
 
@@ -108,3 +113,4 @@
 | --- | --- | --- |
 | 2026-10-13 | farfarfun | 初始化项目说明；记录 src/crates 的归属收窄 |
 | 2026-10-13 | farfarfun | 新增 `packaging/` 区域；记录 apt / brew 两条渠道与共享包仓库的分工 |
+| 2026-10-14 | farfarfun | 记录 Gitee 镜像：连 Release 附件一起同步 |
