@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "funget"
-version = "1.1.72"
+version = "1.1.73"
 dependencies = [
  "clap",
  "env_logger",
@@ -472,7 +472,7 @@ dependencies = [
 
 [[package]]
 name = "funget-py"
-version = "1.1.72"
+version = "1.1.73"
 dependencies = [
  "funget",
  "funget-core",
