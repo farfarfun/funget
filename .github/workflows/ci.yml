@@ -15,7 +15,11 @@ concurrency:
 
 jobs:
   rust:
-    runs-on: ubuntu-latest
+    # 钉死 24.04 而不用 ubuntu-latest：该标签从 2026-10-19 起分批迁往 Ubuntu 26
+    # (actions/runner-images#14748)。迁移期间同一个标签在不同 job 上可能解析到
+    # 不同镜像，差分测试这种依赖系统 Python / glibc 的 job 最容易被坑。
+    # 确认 26 上一切正常后再统一改过去。
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -31,8 +35,9 @@ jobs:
 
   differential:
     # 关键安全网：没有保留纯 Python 回退，行为漂移就是下游的线上问题。
-    # 新 wheel 和改造前的 1.1.70 跑同一套场景，比对返回值 / 产物 sha256 / 是否建文件。
-    runs-on: ubuntu-latest
+    # 新 wheel 和改造前的纯 Python 版跑同一套场景，比对返回值 / 产物 sha256 /
+    # 是否建文件。基线取哪个版本见下面那段注释。
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
