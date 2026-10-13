@@ -1,0 +1,23 @@
+[package]
+name = "funget-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Command-line interface for funget"
+
+[lib]
+name = "funget_cli"
+path = "src/lib.rs"
+
+# 二进制就叫 funget —— 和 pip 安装出来的那个入口同名,两条分发渠道用法完全一致。
+[[bin]]
+name = "funget"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+env_logger.workspace = true
+funget-core.workspace = true
+log.workspace = true

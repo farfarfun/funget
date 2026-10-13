@@ -191,3 +191,8 @@ logs/
 CLAUDE.local.md
 AGENTS.local.md
 uv.lock
+
+# ---- Rust ----
+# `target/` 已被上面的 PyBuilder 段落覆盖。
+# 差分测试的工作目录（两个 venv + 下载产物），`scripts/differential.py --keep` 时留下。
+.differential/

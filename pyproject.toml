@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
 
 [project]
 name = "funget"
@@ -9,8 +9,15 @@ description = "Concurrent HTTP downloads and uploads for Python"
 readme = "README.md"
 requires-python = ">=3.12"
 keywords = [ "download", "upload", "http", "range-requests",]
-classifiers = ["Operating System :: OS Independent", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only"]
-dependencies = [ "funfile>=1.0.39", "farlog>=1.1.7", "funworker>=0.1.3", "requests>=2.30.0", "typer>=0.15", "urllib3>=2.0",]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Rust",
+]
+# 零运行时依赖:实现全在 Rust 扩展里,funfile / farlog / funworker / requests /
+# typer / urllib3 全部消失。
+dependencies = []
 license = "MIT"
 license-files = ["LICENSE"]
 [[project.authors]]
@@ -28,15 +35,21 @@ email = "niuliangtao@qq.com"
 name = "farfarfun"
 email = "farfarfun@qq.com"
 [project.scripts]
-funget = "funget.script:funget"
+funget = "funget:_cli"
 
 [project.urls]
 Organization = "https://github.com/farfarfun"
 Repository = "https://github.com/farfarfun/funget"
 Releases = "https://github.com/farfarfun/funget/releases"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/funget"]
+[tool.maturin]
+# abi3-py312:一个 wheel 覆盖 3.12 及以后所有版本,发布矩阵因此减半。
+features = ["pyo3/abi3-py312"]
+module-name = "funget._funget"
+python-source = "python"
+# 根 crate(funget-py)才是扩展模块,workspace 里另外两个 crate 不参与打包。
+manifest-path = "Cargo.toml"
+strip = true
 
 [tool.ruff]
 target-version = "py312"

@@ -1,0 +1,156 @@
+name: Release
+
+# 改成 PyO3 之后，本地 `uv publish` 只能传一个本机平台的 wheel，其他平台 pip 装
+# 不上（会退化到 sdist 现场编译，要求用户有 Rust 工具链）。所以 wheel 构建和上传
+# 全部挪到这里，由 tag 触发；版本自增 / push / tag 仍留在本地 funbuild。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wheels:
+    name: wheel (${{ matrix.platform.target }}${{ matrix.platform.manylinux && format(' {0}', matrix.platform.manylinux) || '' }})
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            manylinux: musllinux_1_2
+          - runner: macos-13
+            target: x86_64-apple-darwin
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          # abi3-py312：每个平台一个 wheel 覆盖 3.12 及以后所有版本。
+          args: --release --out dist
+          sccache: "true"
+          manylinux: ${{ matrix.platform.manylinux || 'auto' }}
+
+      # 装一遍再 import，确保产出的不是一个只能构建、装上就崩的 wheel。
+      # 交叉编译出来的 wheel 跑不了，跳过。
+      - name: Smoke test
+        if: matrix.platform.target != 'aarch64-unknown-linux-gnu' && matrix.platform.target != 'x86_64-unknown-linux-musl'
+        shell: bash
+        run: |
+          python -m pip install --find-links dist --no-index funget
+          python -c "import funget; print(funget.download, funget.single_upload)"
+          funget --help
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.platform.target }}-${{ matrix.platform.manylinux || 'auto' }}
+          path: dist
+
+  # CLI 二进制单独构建：它的价值就在于「不用装 Python」，所以必须是能直接下载
+  # 运行的独立文件，而不是藏在 wheel 里。
+  binaries:
+    name: cli (${{ matrix.platform.target }})
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: macos-13
+            target: x86_64-apple-darwin
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            suffix: .exe
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.platform.target }}
+
+      - name: Build
+        run: cargo build --release --locked --package funget-cli --target ${{ matrix.platform.target }}
+
+      - name: Rename
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          mv "target/${{ matrix.platform.target }}/release/funget${{ matrix.platform.suffix }}" \
+             "artifacts/funget-${{ matrix.platform.target }}${{ matrix.platform.suffix }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.platform.target }}
+          path: artifacts
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist
+
+  publish:
+    needs: [wheels, binaries, sdist]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      # PyPI Trusted Publishing：不需要在仓库里存 API token。
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cli-*
+          path: binaries
+          merge-multiple: true
+
+      - name: Publish to PyPI
+        uses: PyO3/maturin-action@v1
+        with:
+          command: upload
+          args: --non-interactive --skip-existing dist/*
+
+      - name: Attach CLI binaries to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: binaries/*
+          generate_release_notes: true

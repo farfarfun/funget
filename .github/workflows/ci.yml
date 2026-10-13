@@ -1,0 +1,51 @@
+name: CI
+
+# 契约测试（分块切分、跳过已完整文件、上传前校验、日志脱敏、断点续传……）全在
+# `cargo test` 里。改造前这个仓库没有任何 CI，测试只在本地跑过；没有自动化就等于
+# 没有安全网，所以和 release.yml 一起补上。
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace --locked
+
+  differential:
+    # 关键安全网：没有保留纯 Python 回退，行为漂移就是下游的线上问题。
+    # 新 wheel 和改造前的 1.1.70 跑同一套场景，比对返回值 / 产物 sha256 / 是否建文件。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: astral-sh/setup-uv@v5
+
+      - run: pip install "maturin>=1.7,<2"
+      - run: maturin build --release --out dist
+
+      - name: Differential against funget 1.1.70
+        run: python scripts/differential.py --baseline "funget==1.1.70"

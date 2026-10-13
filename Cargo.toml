@@ -1,0 +1,57 @@
+[workspace]
+members = ["crates/funget-core", "crates/funget-cli"]
+
+[workspace.package]
+version = "1.1.70"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/farfarfun/funget"
+rust-version = "1.82"
+
+[workspace.dependencies]
+clap = { version = "4", features = ["derive"] }
+env_logger = { version = "0.11", default-features = false, features = ["humantime"] }
+funget-core = { path = "crates/funget-core" }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+indicatif = "0.17"
+log = "0.4"
+# 不开 gzip/deflate:requests 默认带 Accept-Encoding,而 funget 又拿解码后的字节数
+# 去比对 Content-Length,一旦服务端真的压缩就会判定「下载不完整」。不声明支持压缩
+# 直接消掉这个历史隐患,对下载文件也没有损失。
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls-webpki-roots",
+    "stream",
+    "multipart",
+    "http2",
+    "charset",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["fs", "rt-multi-thread", "time"] }
+tokio-util = { version = "0.7", features = ["io"] }
+url = "2"
+
+[package]
+name = "funget-py"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "funget 的 Python 扩展模块"
+publish = false
+
+[lib]
+name = "_funget"
+crate-type = ["cdylib"]
+
+[dependencies]
+funget-cli = { path = "crates/funget-cli" }
+funget-core.workspace = true
+pyo3 = { version = "0.23", features = ["extension-module"] }
+pyo3-log = "0.12"
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
