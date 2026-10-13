@@ -56,6 +56,3 @@ target-version = "py312"
 
 [tool.ruff.lint]
 ignore = [ "BLE001", "FA100",]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = [ "SIM117",]
