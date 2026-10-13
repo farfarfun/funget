@@ -16,9 +16,18 @@ funget 有五条分发渠道。前两条（apt / brew）要靠组织的共享包
 读自己的 `packages.toml`，从各项目的非草稿非预发布 Release 里下 `*.deb`。funget
 要做的只是把资产挂到 Release 上，并在那边的 `packages.toml` 里登记三行。
 
-唯一可选的 secret 是 `PACKAGES_DISPATCH_TOKEN`（`notify-packages` job 用它在发完
-版后立刻通知共享仓库重建）。没配就跳过，那边每天 04:17 会兜底扫一遍，只是当天
-`apt` 里看不到新版本。
+**一个 secret 都没有，这是故意的。**发完版后新版本什么时候出现在 `apt` 里，取决
+于共享仓库那边每天 04:17 的兜底 cron —— 最多等一天。想立刻生效就手动触发它：
+
+```bash
+gh workflow run build.yml -R farfarfun/packages
+```
+
+曾经有个 `notify-packages` job 用 PAT 打 `repository_dispatch` 让那边即时重建，
+已经去掉了。原因是跨仓库写必须带一个长期凭据：workflow 自带的 `GITHUB_TOKEN`
+只对本仓库有效，同一个组织也不例外，GitHub 没有「同组织互信」这种开关。为了
+「apt 里早几小时看到新版」在仓库里长期存一个 PAT 并盯着它过期，不值得；上面那行
+命令用的是人的身份，要多快有多快。
 
 ## 工作流顺序
 
@@ -28,7 +37,6 @@ funget 有五条分发渠道。前两条（apt / brew）要靠组织的共享包
 4. `publish` —— 发 PyPI（OIDC trusted publishing）、算 `SHA256SUMS`、挂 Release
 5. `verify-install` —— 真 `dpkg -i` 装一遍，含 `debian:12-slim` 最小镜像
 6. `crates` —— 发 crates.io（版本已存在就跳过）
-7. `notify-packages` —— 通知共享仓库重建索引
 
 ## Release 上的附件
 

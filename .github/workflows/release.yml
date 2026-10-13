@@ -376,22 +376,12 @@ jobs:
           tar -xzf "$asset"
           ./funget --version | grep -F "${VERSION}"
 
-  # 通知共享包仓库重建 APT 索引。没配 token 就跳过：那边每天 04:17 会兜底扫一遍，
-  # 只是当天 apt 里看不到新版本。
-  notify-packages:
-    needs: publish
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Notify farfarfun/packages
-        env:
-          GH_TOKEN: ${{ secrets.PACKAGES_DISPATCH_TOKEN }}
-        run: |
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "没配 PACKAGES_DISPATCH_TOKEN，跳过。"
-            exit 0
-          fi
-          gh api repos/farfarfun/packages/dispatches -f event_type=package-published
+  # 这里原本有个 notify-packages job，发完版用 PAT 打 repository_dispatch 让
+  # farfarfun/packages 立刻重建索引。去掉了：跨仓库写必须带一个长期凭据
+  # （workflow 自带的 GITHUB_TOKEN 只对本仓库有效，同组织也不例外），而换来的
+  # 只是「apt 里早几小时看到新版」—— 那边每天 04:17 本来就会兜底扫一遍。想立刻
+  # 生效就手动触发那边的 build（`gh workflow run build.yml -R farfarfun/packages`），
+  # 用的是人的身份，不用在仓库里存 token。
 
   # crates.io 发布。和 PyPI 那边刻意分开成两个 job：crate 的版本线是独立的 0.x，
   # 多数 tag 根本不会动它，所以这个 job 的常态是「全部跳过」而不是「每次都发」。
