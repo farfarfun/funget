@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "funget"
-version = "1.1.70"
+version = "1.1.71"
 description = "Concurrent HTTP downloads and uploads for Python"
 readme = "README.md"
 requires-python = ">=3.12"

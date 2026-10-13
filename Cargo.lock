@@ -381,7 +381,7 @@ dependencies = [
 
 [[package]]
 name = "funget-cli"
-version = "1.1.70"
+version = "1.1.71"
 dependencies = [
  "clap",
  "env_logger",
@@ -391,7 +391,7 @@ dependencies = [
 
 [[package]]
 name = "funget-core"
-version = "1.1.70"
+version = "1.1.71"
 dependencies = [
  "futures-util",
  "indicatif",
@@ -409,7 +409,7 @@ dependencies = [
 
 [[package]]
 name = "funget-py"
-version = "1.1.70"
+version = "1.1.71"
 dependencies = [
  "funget-cli",
  "funget-core",
