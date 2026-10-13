@@ -5,6 +5,40 @@ HTTP 文件传输工具，提供单线程下载、Range 并发下载、断点续
 
 ## 安装
 
+命令行是独立的原生二进制，**不需要 Python 环境**。下面五条渠道装出来的
+`funget` 命令是同一套实现，`funget --version` 报同一个版本号。
+
+### apt（Debian / Ubuntu）
+
+funget 没有进 Debian 官方档案，所以要先加一次 farfarfun 的包源。加过之后
+`apt install` / `apt upgrade` 就和系统自带的包一样：
+
+```bash
+curl -fsSL https://farfarfun.github.io/packages/farfarfun.gpg \
+  | sudo tee /usr/share/keyrings/farfarfun.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/farfarfun.gpg] https://farfarfun.github.io/packages/deb stable main" \
+  | sudo tee /etc/apt/sources.list.d/farfarfun.list
+sudo apt update && sudo apt install funget
+```
+
+amd64 和 arm64 都有。包里是静态链接的二进制，没有任何依赖，Debian 12 /
+Ubuntu 22.04 这类较老的发行版同样能装。源是组织共用的
+([farfarfun/packages](https://github.com/farfarfun/packages))，加一次之后别的
+farfarfun 工具也能直接 `apt install`。
+
+### Homebrew（macOS / Linux）
+
+同理，先加一次 tap：
+
+```bash
+brew tap farfarfun/tap
+brew install funget
+```
+
+formula 装的是预编好的二进制，不从源码编；它由
+[farfarfun/packages](https://github.com/farfarfun/packages) 按每次 release 的
+`SHA256SUMS` 统一渲染后推到 tap 里。
+
 ### 作为 Python 库
 
 ```bash
@@ -12,22 +46,36 @@ pip install funget
 ```
 
 需要 Python 3.12 或更高版本。无任何运行时依赖，各平台提供预编译 wheel，
-安装时不需要 Rust 工具链。
+安装时不需要 Rust 工具链。这条渠道同样会装上 `funget` 命令。
 
-### 只要命令行
-
-命令行是独立的原生二进制，**不需要 Python 环境**。从
-[Releases](https://github.com/farfarfun/funget/releases) 下载对应平台的文件即可：
+### cargo
 
 ```bash
-curl -L https://github.com/farfarfun/funget/releases/latest/download/funget-x86_64-unknown-linux-gnu -o funget
-chmod +x funget && sudo mv funget /usr/local/bin/
+cargo install funget
 ```
 
-有 Rust 工具链的话也可以 `cargo install funget`。
+### 裸二进制
 
-`pip install funget` 同样会提供 `funget` 命令，三条渠道共用同一套实现，
-`funget --version` 报同一个版本号。
+从 [Releases](https://github.com/farfarfun/funget/releases) 直接取，适合
+CI 镜像和不想加源的机器。推荐静态链接的 musl 版，哪个发行版都能跑：
+
+```bash
+curl -fsSL https://github.com/farfarfun/funget/releases/latest/download/funget-x86_64-unknown-linux-musl.tar.gz \
+  | tar -xz
+sudo install -m 0755 funget /usr/local/bin/
+```
+
+Release 里也有不打包的裸文件（`funget-x86_64-unknown-linux-gnu`、
+`funget-aarch64-apple-darwin`、`funget-x86_64-pc-windows-msvc.exe` 等）。
+Linux 的 **gnu** 裸文件是动态链接的，需要 glibc 2.39 或更高；它存在的理由是
+musl 静态版不走 glibc 的 NSS，靠 mDNS / LDAP / `nss-*` 插件解析主机名的环境只有
+gnu 版能用。其余情况一律优先 musl。
+
+附件的校验和在同一个 release 的 `SHA256SUMS` 里。
+
+> `apt` 装的是 `/usr/bin/funget`，`pip` 装的是虚拟环境或 `~/.local/bin` 下的同名
+> 命令。两者都在 PATH 里时以 PATH 顺序为准，`which -a funget` 能看到实际生效的
+> 是哪一个。
 
 ### 作为 Rust 库
 

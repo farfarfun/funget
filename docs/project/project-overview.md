@@ -84,10 +84,14 @@
   PyO3 0.29 + maturin（abi3-py312，一个 wheel 覆盖 3.12+）、Python 侧零运行时依赖。
 - 开发环境：`cargo fmt --all --check`、`cargo clippy --workspace --all-targets -- -D warnings`、
   `cargo test --workspace --locked`、`maturin build --release`。
-- 测试环境：GitHub Actions（`ci.yml`），runner 钉死 `ubuntu-24.04`。契约测试用 wiremock，
+- 测试环境：GitHub Actions（`ci.yml`），runner 钉死 `ubuntu-24.04`。契约测试用
+  `crates/funget-core/tests/common` 里自建的本地 HTTP / HTTPS 服务（含自签证书），
   外加对 PyPI 上 `funget==1.1.69` 的差分测试。
-- 生产环境：由 `v*` tag 触发 `release.yml`，构建 6 平台 wheel + 5 平台 CLI 二进制，
-  经 trusted publishing（OIDC，无长期令牌）上传 PyPI 与 crates.io。
+- 生产环境：由 `v*` tag 触发 `release.yml`，构建 6 平台 wheel + 7 平台 CLI 二进制，
+  经 trusted publishing（OIDC，无长期令牌）上传 PyPI 与 crates.io。同一个 release
+  还带 4 个 tarball、两个架构的 `.deb` 和 `SHA256SUMS`：`apt` 与 `brew` 两条渠道由
+  组织的共享包仓库 [`farfarfun/packages`](https://github.com/farfarfun/packages)
+  拉取这些资产后统一发布，本仓库为此不需要任何 secret。详见 `packaging/README.md`。
 
 ## 相关文档
 
@@ -95,6 +99,7 @@
 - 变更记录：`CHANGELOG.md`
 - 使用说明：`README.md`
 - 库文档：`crates/funget-core/README.md`、`crates/funget/README.md`
+- 分发打包：`packaging/README.md`
 - 差分测试：`scripts/differential.py`
 
 ## 更新记录
@@ -102,3 +107,4 @@
 | 日期 | 修改人 | 变更摘要 |
 | --- | --- | --- |
 | 2026-10-13 | farfarfun | 初始化项目说明；记录 src/crates 的归属收窄 |
+| 2026-10-13 | farfarfun | 新增 `packaging/` 区域；记录 apt / brew 两条渠道与共享包仓库的分工 |

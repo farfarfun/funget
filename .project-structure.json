@@ -15,6 +15,11 @@
       "path": "logs",
       "owner": "engineering",
       "purpose": "本地运行产生的日志，已 gitignore；检查器不读 gitignore，必须在此声明才不会报 zone.unowned"
+    },
+    {
+      "path": "packaging",
+      "owner": "engineering",
+      "purpose": "分发打包：build-deb.sh 和 packaging/README.md（apt / brew 两条渠道的分工）"
     }
   ],
   "allowed_root_files": []

@@ -12,6 +12,36 @@ permissions:
   contents: read
 
 jobs:
+  # 版本号只有根 Cargo.toml 这一个来源：二进制自报的版本来自 CARGO_PKG_VERSION，
+  # .deb 的 Version 字段和 Homebrew formula 的版本都从这儿取。funbuild 发版时会把
+  # pyproject.toml 和这里写成一致，对不上说明发版流程出了岔子——以前没有这道闸。
+  check:
+    name: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: v
+        shell: bash
+        # 根 Cargo.toml 是纯虚拟工作区，第一个行首 `version = ` 就是
+        # [workspace.package] 的那个。funget-core 的 0.2.0 写在行内的
+        # `{ path = ..., version = ... }` 里，不会被 `^version = ` 匹配到。
+        run: |
+          set -eu
+          version="$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)"
+          if [ -z "$version" ]; then
+            echo "::error::Cargo.toml 里读不出 [workspace.package] 的 version"
+            exit 1
+          fi
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v${version}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} 和 Cargo.toml 里的 ${version} 对不上"
+            exit 1
+          fi
+          echo "version=${version}" >>"$GITHUB_OUTPUT"
+
   wheels:
     name: wheel (${{ matrix.platform.target }}${{ matrix.platform.manylinux && format(' {0}', matrix.platform.manylinux) || '' }})
     runs-on: ${{ matrix.platform.runner }}
@@ -79,22 +109,46 @@ jobs:
       fail-fast: false
       matrix:
         platform:
+          # gnu 两个 target 保留：musl 静态二进制用 musl 自己的解析器，不走 glibc
+          # 的 NSS，靠 mDNS / LDAP / nss-* 插件解析主机名的环境只有 gnu 版能用。
+          # README 里 releases/latest/download/funget-x86_64-unknown-linux-gnu
+          # 也是公开地址，删掉就 404。
           - runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
           - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
+          # musl 全静态：.deb 不写 Depends、Homebrew 的 Linux 瓶子、以及推荐给
+          # 老发行版的 tarball 都用它。ubuntu-24.04 编出来的 gnu 二进制链的是
+          # glibc 2.39，在 Debian 12（2.36）上根本起不来。funget 是纯 rustls，
+          # 没有 OpenSSL，所以静态构建不需要额外的 C 依赖。
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            tarball: "yes"
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            tarball: "yes"
           # macos-13 已于 2025-12-04 退役，标签不再解析到 runner —— job 会一直
           # 排队而不是报错。Intel macOS 现在只有 macos-15-intel，它本身也只撑到
           # 2027 秋季，之后 Actions 不再提供 x86_64 macOS。
           - runner: macos-15-intel
             target: x86_64-apple-darwin
+            tarball: "yes"
           - runner: macos-latest
             target: aarch64-apple-darwin
+            tarball: "yes"
+          # Windows 不出 tarball：Homebrew 和 .deb 都用不上它。
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
             suffix: .exe
     steps:
       - uses: actions/checkout@v4
+
+      # ring 的 build.rs 要一个 C 编译器，musl-tools 提供的 musl-gcc 会被 cc
+      # crate 按 target 三元组自动选中。arm64 用的是原生 arm runner 而不是交叉
+      # 编译，所以两边装的都是宿主架构那一份。
+      - name: Install musl toolchain
+        if: contains(matrix.platform.target, 'musl')
+        run: sudo apt-get update -y && sudo apt-get install -y musl-tools
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -107,10 +161,18 @@ jobs:
       - name: Build
         run: cargo build --release --locked --package funget --target ${{ matrix.platform.target }}
 
-      - name: Rename
+      - name: Package
         shell: bash
+        # tarball 必须在这个 job 里打：upload-artifact 不保留文件权限，裸文件到了
+        # 下游 job 就是 0644 的，而 Homebrew 的 bin.install 和 .deb 都要可执行位。
+        # 里面的文件名得是裸 funget —— formula 和 build-deb.sh 都按裸名取。
         run: |
+          set -eu
           mkdir -p artifacts
+          if [ -n "${{ matrix.platform.tarball }}" ]; then
+            tar -czf "artifacts/funget-${{ matrix.platform.target }}.tar.gz" \
+              -C "target/${{ matrix.platform.target }}/release" funget
+          fi
           mv "target/${{ matrix.platform.target }}/release/funget${{ matrix.platform.suffix }}" \
              "artifacts/funget-${{ matrix.platform.target }}${{ matrix.platform.suffix }}"
 
@@ -118,6 +180,48 @@ jobs:
         with:
           name: cli-${{ matrix.platform.target }}
           path: artifacts
+
+  # 打 .deb。不加 tag 条件，workflow_dispatch 时也跑：打包脚本坏了应该在不发版的
+  # 时候就红，而不是等到真发版。
+  deb:
+    name: deb (${{ matrix.arch }})
+    needs: [check, binaries]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, target: x86_64-unknown-linux-musl }
+          - { arch: arm64, target: aarch64-unknown-linux-musl }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-${{ matrix.target }}
+          path: artifacts
+
+      # 跨架构打包没问题：dpkg-deb 只是把文件装进去，Architecture 是 control
+      # 里的一个字段，不是构建属性。
+      - name: Build .deb
+        run: |
+          set -eu
+          sudo apt-get update -y && sudo apt-get install -y dpkg-dev
+          mkdir -p stage
+          tar -xzf "artifacts/funget-${{ matrix.target }}.tar.gz" -C stage
+          bash packaging/build-deb.sh stage/funget \
+            "${{ needs.check.outputs.version }}" "${{ matrix.arch }}" dist
+
+      - name: Inspect
+        run: |
+          dpkg-deb -I dist/*.deb
+          dpkg-deb -c dist/*.deb
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.arch }}
+          path: dist/*.deb
 
   sdist:
     runs-on: ubuntu-24.04
@@ -133,7 +237,7 @@ jobs:
           path: dist
 
   publish:
-    needs: [wheels, binaries, sdist]
+    needs: [check, wheels, binaries, sdist, deb]
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -151,6 +255,12 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           pattern: cli-*
+          path: binaries
+          merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: deb-*
           path: binaries
           merge-multiple: true
 
@@ -175,11 +285,113 @@ jobs:
             --check-url https://pypi.org/simple/ \
             dist/*
 
-      - name: Attach CLI binaries to the release
+      # 校验和清单最后生成：它要覆盖上面所有附件，提前算就漏掉 .deb 和 tarball。
+      # farfarfun/packages 渲染 Homebrew formula 时按裸文件名在这里查 sha256。
+      - name: Generate SHA256SUMS
+        working-directory: binaries
+        # 必须是块标量：单行 run 是 YAML 的普通标量，空格后的 # 会被当成注释，
+        # 命令从 sed 的分隔符处被截断。
+        #
+        # 用 ./* 而不是 *：文件名以 - 开头时后者会被 sha256sum 当成选项。多出来
+        # 的 ./ 前缀要去掉，formula 是按裸文件名查的。
+        run: |
+          sha256sum ./* | sed 's|\./||' >SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attach the CLI binaries, tarballs and .deb to the release
         uses: softprops/action-gh-release@v2
         with:
           files: binaries/*
           generate_release_notes: true
+
+  # 装机验证只能放在发布之后：下面这些资产要先真的存在。这一步红了说明刚发出去的
+  # 那一版装不上，得立刻补一个。
+  verify-install:
+    name: verify (${{ matrix.os }})
+    needs: [check, publish]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest]
+    env:
+      # 不带 token 的 gh / GitHub API 按出口 IP 限流，而 runner 的出口是共用的。
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - name: Install the .deb
+        if: runner.os == 'Linux'
+        run: |
+          set -eux
+          arch="$(dpkg --print-architecture)"
+          gh release download "v${VERSION}" --repo "$GITHUB_REPOSITORY" \
+            --pattern "funget_${VERSION}_${arch}.deb" --dir . --clobber
+          sudo dpkg -i "funget_${VERSION}_${arch}.deb"
+          dpkg -L funget | grep -qx /usr/bin/funget
+          funget --version | grep -F "${VERSION}"
+
+      # 走一次公网 HTTPS：release 的下载地址会 302 到
+      # objects.githubusercontent.com，所以这一步同时验了静态二进制的证书加载和
+      # 重定向跟随，再用 SHA256SUMS 核对收到的字节。
+      - name: Download a real asset and check its sum
+        if: runner.os == 'Linux'
+        run: |
+          set -eux
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}"
+          asset="funget-$(uname -m)-unknown-linux-musl.tar.gz"
+          gh release download "v${VERSION}" --repo "$GITHUB_REPOSITORY" \
+            --pattern SHA256SUMS --dir . --clobber
+          funget info "${base}/${asset}"
+          funget download "${base}/${asset}" -o got.tar.gz --silent
+          awk -v f="$asset" '$2 == f {print $1}' SHA256SUMS >want.sha
+          sha256sum got.tar.gz | awk '{print $1}' >got.sha
+          [ -s want.sha ]  # 名字对不上就是清单漏了这个附件，不能静默当成通过
+          diff want.sha got.sha
+
+      # 这是整件事的要点：Debian 12 的 glibc 是 2.36，gnu 二进制在这里起不来。
+      # 而这个镜像连 ca-certificates 都没有，HTTPS 还能通正说明编进去的 webpki
+      # 根证书那条路有效（所以 .deb 里 ca-certificates 是 Recommends 而非 Depends）。
+      - name: Install on debian:12-slim
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          set -eux
+          docker run --rm -e VERSION -e GITHUB_REPOSITORY -v "$PWD:/w" -w /w \
+            debian:12-slim sh -eux -c '
+              dpkg -i "funget_${VERSION}_amd64.deb"
+              funget --version
+              funget info "https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/SHA256SUMS"
+            '
+
+      # brew install 的验证归 farfarfun/packages —— formula 是那边渲染和推送的，
+      # 它的 verify job 本来就是「照 README 真装一遍」的形状。这里只证明 tarball
+      # 本身解开能跑（可执行位有没有在 tar 里保住，就看这一步）。
+      - name: Unpack the macOS tarball and run it
+        if: runner.os == 'macOS'
+        run: |
+          set -eux
+          asset="funget-$(uname -m | sed 's/^arm64$/aarch64/')-apple-darwin.tar.gz"
+          gh release download "v${VERSION}" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$asset" --dir . --clobber
+          tar -xzf "$asset"
+          ./funget --version | grep -F "${VERSION}"
+
+  # 通知共享包仓库重建 APT 索引。没配 token 就跳过：那边每天 04:17 会兜底扫一遍，
+  # 只是当天 apt 里看不到新版本。
+  notify-packages:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Notify farfarfun/packages
+        env:
+          GH_TOKEN: ${{ secrets.PACKAGES_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "没配 PACKAGES_DISPATCH_TOKEN，跳过。"
+            exit 0
+          fi
+          gh api repos/farfarfun/packages/dispatches -f event_type=package-published
 
   # crates.io 发布。和 PyPI 那边刻意分开成两个 job：crate 的版本线是独立的 0.x，
   # 多数 tag 根本不会动它，所以这个 job 的常态是「全部跳过」而不是「每次都发」。

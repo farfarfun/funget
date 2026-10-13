@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.1.73
+
+纯分发层的一版，Rust 代码和两边的 API 一个字没动。
+
+### 新增
+
+- **`apt install funget` 和 `brew install funget`**。两条渠道都要**先加一次源**
+  （apt 加 keyring + source 行，brew 加 `farfarfun/tap`），之后就和系统自带的包
+  一样升级。进 Debian 官方档案和 homebrew-core 都有知名度与维护者门槛，不在计划内。
+  具体命令见 README 的安装一节。
+
+  索引和 formula 都由组织的共享包仓库
+  [`farfarfun/packages`](https://github.com/farfarfun/packages) 统一维护 —— 它从
+  各项目的 Release 里拉 `.deb`，所以**用户只加一次源，以后新增的 farfarfun 工具
+  直接就有**。funget 这边只负责产出资产，不需要任何 secret。
+- **Release 新增两个 musl 静态构建的 Linux target**，以及 `.deb`、tarball 和
+  `SHA256SUMS`：
+  - `funget_<版本号>_{amd64,arm64}.deb` —— 共享包仓库来拉的就是它。静态链接，
+    **没有 `Depends`**；`ca-certificates` 写成 `Recommends`，因为系统证书库读不到
+    时内置的 webpki 根证书照样能验公网站点（认不了私有 CA 而已）。
+  - `funget-{x86_64,aarch64}-{unknown-linux-musl,apple-darwin}.tar.gz` ——
+    Homebrew formula 装的是这四个。
+  - `SHA256SUMS` 覆盖 release 的全部附件。
+- **发布后的装机验证**：在 ubuntu x86_64 / arm64 上真 `dpkg -i` 装一遍、核对版本号、
+  走一次公网 HTTPS 下载并比对校验和；再在 **`debian:12-slim`** 这个连
+  `ca-certificates` 都没有的最小镜像里装一遍。后者是整件事的要点 —— Debian 12 的
+  glibc 是 2.36，现有的 gnu 二进制在那里根本起不来。
+- 发版流程多了一道闸：tag 与根 `Cargo.toml` 的版本号对不上直接失败。
+
+### 变更
+
+- **Linux 的 gnu 裸二进制保留**，没有被 musl 取代。musl 静态构建用自己的解析器、
+  不走 glibc 的 NSS，靠 mDNS / LDAP / `nss-*` 插件解析主机名的环境只有 gnu 版能用；
+  而且 `releases/latest/download/funget-x86_64-unknown-linux-gnu` 是公开地址，
+  删掉就 404。README 里的 `curl` 一行改为推荐 musl tarball，gnu 文件标注了它要
+  glibc ≥ 2.39。
+- 新增 `packaging/build-deb.sh` 和 `packaging/README.md`（三条渠道的分工、本地怎么
+  单跑打包脚本、共享仓库那边的登记契约）。
+
 ## 1.1.72
 
 ### 新增
