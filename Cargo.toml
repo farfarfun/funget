@@ -1,8 +1,12 @@
+# 纯虚拟工作区:根目录不再是一个 crate。三个 crate 全部在 crates/ 下,
+# 顶层 src/ 让给 Python 包(src layout)。这样「哪个目录是谁的」不再有歧义 ——
+# Rust 看 crates/,Python 看 src/。
 [workspace]
-members = ["crates/funget-core", "crates/funget"]
+members = ["crates/funget-core", "crates/funget", "crates/funget-py"]
+resolver = "2"
 
 [workspace.package]
-# funget-py(根 crate,PyO3 扩展)和 crates/funget(CLI 二进制)跟这个号走 —— 前者
+# crates/funget-py(PyO3 扩展)和 crates/funget(CLI 二进制)跟这个号走 —— 前者
 # 必须和 pyproject.toml 一致,后者的 `--version` 要在 pip 和 cargo install 两条渠道
 # 报同一个值。由 funbuild 在发版时同步写入。
 #
@@ -40,29 +44,6 @@ thiserror = "2"
 tokio = { version = "1", features = ["fs", "rt-multi-thread", "time"] }
 tokio-util = { version = "0.7", features = ["io"] }
 url = "2"
-
-[package]
-name = "funget-py"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
-# 不继承 workspace 的 1.82:pyo3 0.29 自己要求 1.83。只有这个 crate 受影响,
-# funget-core / funget 不依赖 pyo3,它们的 MSRV 保持 1.82 —— 发到 crates.io 的
-# 是那两个,没必要让库用户跟着抬门槛。
-rust-version = "1.83"
-description = "funget 的 Python 扩展模块"
-publish = false
-
-[lib]
-name = "_funget"
-crate-type = ["cdylib"]
-
-[dependencies]
-funget = { path = "crates/funget" }
-funget-core.workspace = true
-pyo3 = { version = "0.29", features = ["extension-module"] }
-pyo3-log = "0.13"
 
 [profile.release]
 codegen-units = 1

@@ -46,9 +46,10 @@ Releases = "https://github.com/farfarfun/funget/releases"
 # abi3-py312:一个 wheel 覆盖 3.12 及以后所有版本,发布矩阵因此减半。
 features = ["pyo3/abi3-py312"]
 module-name = "funget._funget"
-python-source = "python"
-# 根 crate(funget-py)才是扩展模块,workspace 里另外两个 crate 不参与打包。
-manifest-path = "Cargo.toml"
+python-source = "src"
+# 工作区是纯虚拟的(根目录没有 [package]),所以必须显式指向扩展模块那个 crate,
+# 否则 maturin 不知道该打包哪一个。
+manifest-path = "crates/funget-py/Cargo.toml"
 strip = true
 
 [tool.ruff]

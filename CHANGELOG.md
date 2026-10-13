@@ -30,6 +30,14 @@
 - 构建 Python 扩展所需的最低 Rust 版本提升至 **1.83**（pyo3 0.29 的要求）。
   只影响从源码编译 wheel 的场景；装预编译 wheel 不需要 Rust 工具链。发到
   crates.io 的 `funget` 和 `funget-core` 不依赖 pyo3，MSRV 仍是 1.82。
+- **仓库布局调整**，消除「`src/` 到底归谁」的歧义。纯内部改动，wheel 与 sdist 的
+  内容、Python 包的导入路径、CLI 行为均不变：
+  - 根目录改为**纯虚拟工作区**（只有 `[workspace]`，不再是 crate）。
+  - `src/lib.rs` → `crates/funget-py/src/lib.rs`，PyO3 扩展成为正式的工作区成员。
+  - `python/funget/` → `src/funget/`，`src/` 自此只属于 Python（src layout）。
+  - 所有 Rust 代码统一在 `crates/` 下。
+  - 新增 `.project-structure.json` 与 `docs/project/project-overview.md`，把上面的
+    归属写成机器可校验的声明。
 
 ## 1.1.71
 

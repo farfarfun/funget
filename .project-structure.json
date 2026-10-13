@@ -1,0 +1,21 @@
+{
+  "version": 3,
+  "profiles": [
+    "python",
+    "rust"
+  ],
+  "applications": [],
+  "additional_zones": [
+    {
+      "path": "crates",
+      "owner": "engineering",
+      "purpose": "Rust crates: funget-core 下载/上传引擎、funget CLI、funget-py PyO3 扩展"
+    },
+    {
+      "path": "logs",
+      "owner": "engineering",
+      "purpose": "本地运行产生的日志，已 gitignore；检查器不读 gitignore，必须在此声明才不会报 zone.unowned"
+    }
+  ],
+  "allowed_root_files": []
+}

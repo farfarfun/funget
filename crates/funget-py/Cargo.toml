@@ -1,0 +1,22 @@
+[package]
+name = "funget-py"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# 不继承 workspace 的 1.82:pyo3 0.29 自己要求 1.83。只有这个 crate 受影响,
+# funget-core / funget 不依赖 pyo3,它们的 MSRV 保持 1.82 —— 发到 crates.io 的
+# 是那两个,没必要让库用户跟着抬门槛。
+rust-version = "1.83"
+description = "funget 的 Python 扩展模块"
+publish = false
+
+[lib]
+name = "_funget"
+crate-type = ["cdylib"]
+
+[dependencies]
+funget = { path = "../funget" }
+funget-core.workspace = true
+pyo3 = { version = "0.29", features = ["extension-module"] }
+pyo3-log = "0.13"
