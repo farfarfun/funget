@@ -33,6 +33,10 @@ PyO3 扩展，Python 侧只剩再导出。
   定位写，中间分块失败但末块成功时文件大小仍等于远端大小，下一次 `overwrite=False`
   的调用会命中「已完整」检查，静默返回成功并留下一个带空洞的文件。现在未开启
   `resume` 时失败会把文件截断为 0；「已完整」检查也额外要求不存在续传状态文件。
+- **错误日志不再回显 URL 的 query。** `reqwest` 的错误文本会自带一句
+  `for url (…)`,其中 userinfo 被抹掉但 query 原样保留,而下载链接的 query 里常常
+  就是签名或临时 token。现在在错误类型的转换入口统一摘掉这份 URL,日志中的地址一律
+  走 `safe_url()`(与 1.1.70 的 `request_error_context()` 同一意图)。
 - README `Python API` 示例中 `simple_download`/`multi_thread_download` 调用缺少
   `url`/`filepath` 定义，复制运行会触发 `NameError`，改为可直接运行的完整示例。
 - `funget info` 过去把文件路径写死为 `/tmp/funget-info`，导致 `Filename:` 一行
