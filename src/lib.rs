@@ -86,7 +86,7 @@ fn download(
     };
     // 整个调用期间都放掉 GIL。这是 PyO3 版相对纯 Python 版最直接的收益来源:
     // 下载是纯 IO + 文件写,全程不碰 Python 对象,调用方的其他线程可以照常跑。
-    py.allow_threads(|| download_auto(url, filepath, multi, &options))
+    py.detach(|| download_auto(url, filepath, multi, &options))
 }
 
 /// 多线程分块下载。
@@ -133,7 +133,7 @@ fn multi_thread_download(
         known_size: filesize,
         ..DownloadOptions::default()
     };
-    py.allow_threads(|| download_multi(url, filepath, &options))
+    py.detach(|| download_multi(url, filepath, &options))
 }
 
 /// 单线程流式下载。
@@ -177,7 +177,7 @@ fn simple_download(
         known_size: filesize,
         ..DownloadOptions::default()
     };
-    py.allow_threads(|| download_single(url, filepath, &options))
+    py.detach(|| download_single(url, filepath, &options))
 }
 
 /// 上传单个文件。
@@ -225,14 +225,14 @@ fn single_upload(
         auth: auth.map(|(username, password)| Auth { username, password }),
         progress: true,
     };
-    py.allow_threads(|| upload(url, filepath, &options))
+    py.detach(|| upload(url, filepath, &options))
 }
 
 /// `[project.scripts] funget` 的入口:把 `sys.argv` 转给原生 CLI。
 #[pyfunction]
 #[pyo3(signature = (argv))]
 fn cli_main(py: Python<'_>, argv: Vec<String>) -> i32 {
-    py.allow_threads(|| funget::run(argv))
+    py.detach(|| funget::run(argv))
 }
 
 #[pymodule]

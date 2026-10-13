@@ -12,11 +12,24 @@
     CLI 和 PyO3 扩展跨 crate 调用才公开的，并非按公共 Rust API 设计，0.x 期间仍会
     调整。PyPI 侧的 1.1.x 不受其影响。
 
+### 安全
+
+- **pyo3 0.23 → 0.29**，修掉三条影响默认分支的通告：`PyList`/`PyTuple` 迭代器
+  `nth`/`nth_back` 的越界读（高危）、`PyCFunction::new_closure` 缺 `Sync` 约束（中危）、
+  `PyString::from_object` 的缓冲区溢出风险（低危）。funget 的扩展层没有用到这三个
+  API，但依赖在版本范围内，一并升掉。`pyo3-log` 同步升到 0.13。
+
+  升级只改了一处写法：`Python::allow_threads` 在 0.27 更名为 `Python::detach`，
+  语义和签名完全一致，释放 GIL 的行为不变。
+
 ### 变更
 
 - CLI crate 由 `funget-cli` 改名为 `funget`（目录 `crates/funget-cli/` →
   `crates/funget/`），使 `cargo install funget` 直接装出 `funget` 命令。二进制名、
   命令行参数和行为均无变化。
+- 构建 Python 扩展所需的最低 Rust 版本提升至 **1.83**（pyo3 0.29 的要求）。
+  只影响从源码编译 wheel 的场景；装预编译 wheel 不需要 Rust 工具链。发到
+  crates.io 的 `funget` 和 `funget-core` 不依赖 pyo3，MSRV 仍是 1.82。
 
 ## 1.1.71
 
