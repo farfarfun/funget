@@ -7,7 +7,7 @@
 ### 新增
 
 - **`apt install funget` 和 `brew install funget`**。两条渠道都要**先加一次源**
-  （apt 加 keyring + source 行，brew 加 `farfarfun/tap`），之后就和系统自带的包
+  （apt 加 keyring + source 行，brew `tap` 加 `farfarfun/packages` 再 `trust` 一下），之后就和系统自带的包
   一样升级。进 Debian 官方档案和 homebrew-core 都有知名度与维护者门槛，不在计划内。
   具体命令见 README 的安装一节。
 

@@ -7,7 +7,7 @@ funget 有五条分发渠道。前两条（apt / brew）要靠组织的共享包
 | 渠道 | 谁做的 |
 | --- | --- |
 | `apt-get install funget` | `farfarfun/packages` 拉本仓库 Release 里的 `.deb`，重建签名索引发到 Pages |
-| `brew install funget` | `farfarfun/packages` 按 `SHA256SUMS` 渲染 formula，推到 `farfarfun/homebrew-tap` |
+| `brew install funget` | `farfarfun/packages` 按 `SHA256SUMS` 渲染 formula，提交回它自己的 `Formula/`（那个仓库同时就是 tap） |
 | `pip install funget` | 本仓库 → PyPI（`wheels` / `sdist` / `publish`） |
 | `cargo install funget` | 本仓库 → crates.io（`crates`） |
 | 裸二进制 / tarball | 本仓库 → GitHub Release |
@@ -109,21 +109,25 @@ keep = 3
 # 1.1.72 及更早的 release 里没有 .deb。collect-debs.sh 对「没有 .deb」是容忍的，
 # 写下限只是为了别让 keep=3 把名额占在没有包的版本上。
 min_version = "1.1.73"
+
+# 有这一节才渲染 formula。desc 用英文，brew 的搜索和 `brew desc` 都读它。
+[source.brew]
+desc = "HTTP file transfer tool with ranged concurrency and resume"
+# `brew test` 的额外断言，格式是 [参数, 输出里该出现的字串]。对 `--version` 的
+# 断言那边默认就有，不用写。这一行可以整个省掉。
+checks = [["--help", "download"]]
 ```
 
-Homebrew formula 由那边渲染，本仓库提供的契约：
+本仓库的 Release 满足那边 `render-formula.py` 的全部命名约定，不需要为 funget
+写任何特例：
 
-| 项 | 值 |
+| 约定 | funget 的实际产出 |
 | --- | --- |
-| tarball | `funget-<target>.tar.gz`，target ∈ {`x86_64`,`aarch64`} × {`apple-darwin`,`unknown-linux-musl`} |
-| tarball 内容 | 单个可执行文件 `funget` |
-| 校验和 | Release 里的 `SHA256SUMS`，一行一个裸文件名 |
-| 下载地址 | `https://github.com/farfarfun/funget/releases/download/v<version>/<file>` |
-| formula 名 | `funget`（homebrew-core 没有同名 formula，不会被遮挡） |
-| `desc` | `HTTP file transfer tool with ranged concurrency and resume` |
-| `homepage` | `https://github.com/farfarfun/funget` |
-| `install` | `bin.install "funget"` |
-| `test` | `assert_match version.to_s, shell_output("#{bin}/funget --version")` |
+| `<包名>-<target>.tar.gz` | `funget-{x86_64,aarch64}-{apple-darwin,unknown-linux-musl}.tar.gz` |
+| `<包名>_<版本>_<架构>.deb` | `funget_1.1.73_{amd64,arm64}.deb` |
+| 包名取仓库名 | 仓库叫 `funget`，二进制也叫 `funget` |
+| tarball 里是单个可执行文件 | 是，裸名 `funget`，可执行位已保住 |
+| 校验和 | `SHA256SUMS`，一行一个裸文件名 |
 
-这份契约和 fundeploy 的 `packaging/render-homebrew-formula.sh` 逐字对齐，那个脚本
-的输入格式不用改，只要把名字 / 描述 / test 参数化。
+formula 名就是 `funget`，homebrew-core 里没有同名 formula（查过
+`formulae.brew.sh/api/formula/funget.json` → 404），不会被遮挡，可以裸名字装。

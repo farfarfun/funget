@@ -31,13 +31,19 @@ farfarfun 工具也能直接 `apt install`。
 同理，先加一次 tap：
 
 ```bash
-brew tap farfarfun/tap
+brew tap farfarfun/packages https://github.com/farfarfun/packages
+brew trust farfarfun/packages
 brew install funget
 ```
 
+`tap` 那行要把 URL 写出来，因为 `brew tap a/b` 默认去找 `github.com/a/homebrew-b`，
+而那个仓库同时还是 apt 源，不叫 `homebrew-packages`。`trust` 那行也不能省：
+Homebrew 6.0 起第三方 tap 默认不可信，不 trust 就只能写全名
+`brew install farfarfun/packages/funget`。这两行加过一次之后就是裸名字装。
+
 formula 装的是预编好的二进制，不从源码编；它由
 [farfarfun/packages](https://github.com/farfarfun/packages) 按每次 release 的
-`SHA256SUMS` 统一渲染后推到 tap 里。
+`SHA256SUMS` 统一渲染，和 APT 索引共用一个仓库。
 
 ### 作为 Python 库
 
