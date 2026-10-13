@@ -47,5 +47,9 @@ jobs:
       - run: pip install "maturin>=1.7,<2"
       - run: maturin build --release --out dist
 
-      - name: Differential against funget 1.1.70
-        run: python scripts/differential.py --baseline "funget==1.1.70"
+      # 基线用 1.1.69 而不是改造前 master 上的 1.1.70：1.1.70 只在仓库里打了版本号，
+      # 从未发到 PyPI（最新发布版就是 1.1.69），CI 上装不到。两者在下载/上传路径上的
+      # 差异只有类型标注现代化、文档字符串和日志脱敏，不影响这里比对的三项可观测行为；
+      # 本地已分别对 1.1.69 与 1.1.70 跑过，都是 29/29 一致。
+      - name: Differential against funget 1.1.69
+        run: python scripts/differential.py --baseline "funget==1.1.69"

@@ -3,7 +3,7 @@
 这是本次 Rust 改造**最关键的安全网** —— 因为没有保留纯 Python 回退,
 一旦行为漂移就是下游 16 个仓库的线上问题。
 
-做法:建两个 venv,一个装改造前的 ``funget==1.1.70``(纯 Python),一个装新
+做法:建两个 venv,一个装改造前的纯 Python 版(默认 ``funget==1.1.69``),一个装新
 wheel;各自起一个全新的测试服务(服务端带状态,比如 flaky 的失败配额,所以
 必须一边一个,不能共用),在各自的解释器里跑 ``differential_probe.py``,
 比对三项可观测行为:**返回值 / 产物 sha256 / 文件是否创建**。
@@ -12,7 +12,7 @@ wheel;各自起一个全新的测试服务(服务端带状态,比如 flaky 的�
 
     python scripts/differential.py                       # 自动找 dist/ 下的新 wheel
     python scripts/differential.py --new-wheel path.whl
-    python scripts/differential.py --baseline funget==1.1.70   # 从 PyPI 取基线
+    python scripts/differential.py --baseline ./old.whl  # 换一个基线实现
 """
 
 from __future__ import annotations
@@ -39,7 +39,19 @@ GREEN, RED, YELLOW, DIM, RESET = (
 
 
 def run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, check=True, text=True, **kwargs)  # type: ignore[arg-type]
+    """跑一条命令;失败时把被 ``capture_output`` 吞掉的输出打出来再抛。
+
+    不补这一段的话,CI 上装基线失败只会得到一行 ``CalledProcessError``,真正的原因
+    (比如「这个版本 PyPI 上没有」)全在被捕获的 stderr 里,看不见。
+    """
+    try:
+        return subprocess.run(cmd, check=True, text=True, **kwargs)  # type: ignore[arg-type]
+    except subprocess.CalledProcessError as error:
+        print(f"{RED}命令失败{RESET}: {' '.join(cmd)}", file=sys.stderr)
+        for label, stream in (("stdout", error.stdout), ("stderr", error.stderr)):
+            if stream:
+                print(f"--- {label} ---\n{stream.rstrip()}", file=sys.stderr)
+        raise
 
 
 def make_venv(path: Path, spec: str) -> Path:
@@ -89,9 +101,14 @@ def probe(python: Path, workdir: Path, label: str) -> dict[str, dict[str, object
             ],
             capture_output=True,
             text=True,
+            # 故意不用 check=True:下面要带上 label 和 stderr 自己抛,比
+            # CalledProcessError 好读。
+            check=False,
         )
         if result.returncode != 0:
-            raise RuntimeError(f"{label} 探测进程退出码 {result.returncode}\n{result.stderr}")
+            raise RuntimeError(
+                f"{label} 探测进程退出码 {result.returncode}\n{result.stderr}"
+            )
         payload = json.loads(result.stdout)
     finally:
         server.terminate()
@@ -138,7 +155,9 @@ def compare(old: dict[str, dict], new: dict[str, dict]) -> int:
                 detail += f" sha={before['sha256'][:12]}"
             print(f"{GREEN}OK{RESET}      {name:<{width}}  {DIM}{detail}{RESET}")
             # 两边都抛异常但类型不同,不算致命(异常文本本就不是契约),但要提示。
-            if before["error"] != after["error"] and (before["error"] or after["error"]):
+            if before["error"] != after["error"] and (
+                before["error"] or after["error"]
+            ):
                 print(f"          {YELLOW}异常文本不同{RESET}")
                 print(f"          {DIM}旧: {before['error']}{RESET}")
                 print(f"          {DIM}新: {after['error']}{RESET}")
@@ -150,10 +169,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--baseline",
-        default=str(ROOT / "dist" / "funget-1.1.70-py3-none-any.whl"),
-        help="基线实现:wheel 路径或 pip 约束(默认用 dist 下改造前的纯 Python wheel)",
+        # 默认取 PyPI 上最后一个纯 Python 发布版。改造前 master 上的 1.1.70 只打了
+        # 版本号、从未发布,拿它当默认值的话别人 clone 下来直接跑会找不到文件。
+        default="funget==1.1.69",
+        help="基线实现:wheel 路径或 pip 约束(默认 funget==1.1.69,PyPI 上最后一个纯 Python 版)",
     )
-    parser.add_argument("--new-wheel", default=None, help="新 wheel 路径,默认自动在 dist/ 找")
+    parser.add_argument(
+        "--new-wheel", default=None, help="新 wheel 路径,默认自动在 dist/ 找"
+    )
     parser.add_argument("--workdir", default=str(ROOT / ".differential"))
     parser.add_argument("--keep", action="store_true", help="保留 venv 和产物,便于排查")
     args = parser.parse_args()
@@ -166,7 +189,9 @@ def main() -> int:
             if "py3-none-any" not in path.name
         )
         if not candidates:
-            print("dist/ 下没有找到编译产出的 wheel,先跑 maturin build", file=sys.stderr)
+            print(
+                "dist/ 下没有找到编译产出的 wheel,先跑 maturin build", file=sys.stderr
+            )
             return 2
         new_wheel = str(candidates[-1])
 

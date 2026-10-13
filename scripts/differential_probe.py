@@ -287,7 +287,7 @@ def main() -> int:
                 "sha256": digest(target) if target else None,
                 "error": None,
             }
-        except Exception:  # noqa: BLE001 - 异常本身就是要比对的行为
+        except Exception:
             results[name] = {
                 "returned": "<raised>",
                 "created": None,

@@ -26,6 +26,7 @@ import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+
 # 可重现的伪随机负载。不用全 0:写错偏移时全 0 文件照样能对上 sha,错误会被掩盖。
 def payload(size: int) -> bytes:
     return bytes((i * 31) % 251 for i in range(size))
@@ -42,7 +43,7 @@ _flaky_lock = threading.Lock()
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
-    def log_message(self, *args: object) -> None:  # noqa: D102 - 保持输出干净
+    def log_message(self, *args: object) -> None:
         pass
 
     def handle_one_request(self) -> None:
@@ -57,16 +58,16 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- 路由 -------------------------------------------------------------
 
-    def do_HEAD(self) -> None:  # noqa: N802
+    def do_HEAD(self) -> None:
         self._serve(body=False)
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         self._serve(body=True)
 
-    def do_PUT(self) -> None:  # noqa: N802
+    def do_PUT(self) -> None:
         self._receive()
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         self._receive()
 
     # ---- 实现 -------------------------------------------------------------
