@@ -56,12 +56,33 @@ jobs:
             echo "::warning::没有 GITEE_TOKEN，只镜像 git，release 和附件不搬。"
           fi
 
-      - name: 镜像到 Gitee
+      # 从 GitHub 的 runner 去 gitee.com 经常 30s 读超时，funmirror 对此不重试：
+      # detect 阶段问一次 Gitee 的 branch sha，超时就整个 job 红。接进来的时候三次
+      # 里红了两次，第三次什么都没改就过了。
+      #
+      # 所以失败一次不算数。重跑是安全的：release 按 tag 认，附件按名字加大小比，
+      # 已经一致的直接跳过，不一致的先删再传 —— 不会出现重复附件。Actions 没有
+      # 原生的 step 重试，只能把同一步写两遍。
+      - id: try1
+        name: 镜像到 Gitee
+        continue-on-error: true
         uses: farfarfun-action/mirror-repo@v1
         with:
           src: github/${{ github.repository_owner }}
           dst: gitee/${{ github.repository_owner }}
           # 公开仓库匿名也读得到，但匿名限流按 runner 的出口 IP 算，是共用的。
+          src_token: ${{ github.token }}
+          dst_key: ${{ secrets.GITEE_RSA_PRIVATE_KEY }}
+          dst_token: ${{ secrets.GITEE_TOKEN }}
+          repo-names: ${{ github.event.repository.name }}
+          sync-releases: ${{ steps.creds.outputs.releases }}
+
+      - name: 镜像到 Gitee（再来一次）
+        if: steps.try1.outcome == 'failure'
+        uses: farfarfun-action/mirror-repo@v1
+        with:
+          src: github/${{ github.repository_owner }}
+          dst: gitee/${{ github.repository_owner }}
           src_token: ${{ github.token }}
           dst_key: ${{ secrets.GITEE_RSA_PRIVATE_KEY }}
           dst_token: ${{ secrets.GITEE_TOKEN }}
