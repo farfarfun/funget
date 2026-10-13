@@ -232,7 +232,7 @@ fn single_upload(
 #[pyfunction]
 #[pyo3(signature = (argv))]
 fn cli_main(py: Python<'_>, argv: Vec<String>) -> i32 {
-    py.allow_threads(|| funget_cli::run(argv))
+    py.allow_threads(|| funget::run(argv))
 }
 
 #[pymodule]

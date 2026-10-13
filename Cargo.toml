@@ -1,7 +1,13 @@
 [workspace]
-members = ["crates/funget-core", "crates/funget-cli"]
+members = ["crates/funget-core", "crates/funget"]
 
 [workspace.package]
+# funget-py(根 crate,PyO3 扩展)和 crates/funget(CLI 二进制)跟这个号走 —— 前者
+# 必须和 pyproject.toml 一致,后者的 `--version` 要在 pip 和 cargo install 两条渠道
+# 报同一个值。由 funbuild 在发版时同步写入。
+#
+# crates/funget-core 例外:它作为库发到 crates.io,维护独立的 0.x 版本线,不写
+# `version.workspace = true`。详见该 crate 的 Cargo.toml 注释。
 version = "1.1.71"
 edition = "2021"
 license = "MIT"
@@ -11,7 +17,10 @@ rust-version = "1.82"
 [workspace.dependencies]
 clap = { version = "4", features = ["derive"] }
 env_logger = { version = "0.11", default-features = false, features = ["humantime"] }
-funget-core = { path = "crates/funget-core" }
+# 必须带 version:crates.io 不收 path 依赖,`cargo publish` 会在打包时把 path
+# 去掉、只留版本约束。缺这一项 `cargo publish -p funget` 直接报
+# 「all dependencies must have a version requirement specified when publishing」。
+funget-core = { path = "crates/funget-core", version = "0.1.0" }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 indicatif = "0.17"
 log = "0.4"
@@ -46,7 +55,7 @@ name = "_funget"
 crate-type = ["cdylib"]
 
 [dependencies]
-funget-cli = { path = "crates/funget-cli" }
+funget = { path = "crates/funget" }
 funget-core.workspace = true
 pyo3 = { version = "0.23", features = ["extension-module"] }
 pyo3-log = "0.12"

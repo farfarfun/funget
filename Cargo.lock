@@ -380,7 +380,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "funget-cli"
+name = "funget"
 version = "1.1.71"
 dependencies = [
  "clap",
@@ -391,7 +391,7 @@ dependencies = [
 
 [[package]]
 name = "funget-core"
-version = "1.1.71"
+version = "0.1.0"
 dependencies = [
  "futures-util",
  "indicatif",
@@ -411,7 +411,7 @@ dependencies = [
 name = "funget-py"
 version = "1.1.71"
 dependencies = [
- "funget-cli",
+ "funget",
  "funget-core",
  "pyo3",
  "pyo3-log",

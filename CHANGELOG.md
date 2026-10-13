@@ -1,5 +1,23 @@
 # Changelog
 
+## 未发布
+
+### 新增
+
+- **发布到 crates.io**，Rust 用户不再需要从源码或 Release 页取用：
+  - [`funget`](https://crates.io/crates/funget) —— 命令行工具，`cargo install funget`。
+    版本号与 PyPI 保持一致，三条分发渠道的 `funget --version` 报同一个值。
+  - [`funget-core`](https://crates.io/crates/funget-core) —— 下载/上传引擎，可作为
+    Rust 库独立使用。**版本线独立，从 0.1.0 起**：它的 9 个 `pub mod` 当初是为了让
+    CLI 和 PyO3 扩展跨 crate 调用才公开的，并非按公共 Rust API 设计，0.x 期间仍会
+    调整。PyPI 侧的 1.1.x 不受其影响。
+
+### 变更
+
+- CLI crate 由 `funget-cli` 改名为 `funget`（目录 `crates/funget-cli/` →
+  `crates/funget/`），使 `cargo install funget` 直接装出 `funget` 命令。二进制名、
+  命令行参数和行为均无变化。
+
 ## 1.1.71
 
 ### 重写：实现全面迁移至 Rust

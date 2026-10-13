@@ -24,7 +24,23 @@ curl -L https://github.com/farfarfun/funget/releases/latest/download/funget-x86_
 chmod +x funget && sudo mv funget /usr/local/bin/
 ```
 
-`pip install funget` 同样会提供 `funget` 命令，与独立二进制共用同一套实现。
+有 Rust 工具链的话也可以 `cargo install funget`。
+
+`pip install funget` 同样会提供 `funget` 命令，三条渠道共用同一套实现，
+`funget --version` 报同一个版本号。
+
+### 作为 Rust 库
+
+下载/上传引擎本身发布在 crates.io 上，可以脱离 Python 和 CLI 单独使用：
+
+```toml
+[dependencies]
+funget-core = "0.1"
+```
+
+crate 的版本线是独立的 0.x —— 它的公开模块当初是为跨 crate 复用而 `pub` 的，
+不是按公共 Rust API 设计的，所以在 0.x 期间仍会调整。详见
+[`crates/funget-core/README.md`](crates/funget-core/README.md)。
 
 ## 命令行
 

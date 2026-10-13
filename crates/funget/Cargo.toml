@@ -1,0 +1,37 @@
+[package]
+name = "funget"
+# 跟着 workspace 版本走,也就是和 PyPI 上的 funget 同号。
+#
+# 这里**刻意**不像 funget-core 那样另起 0.x 线:clap 的 `--version` 取自本 crate 的
+# CARGO_PKG_VERSION,而这个二进制有两条分发渠道 —— `cargo install funget` 和
+# `pip install funget`。两边必须报同一个号,否则 `pip install funget==1.1.71` 装出来的
+# 命令会自报 0.1.0。
+#
+# 代价可以接受:bin crate 不对外暴露 API,semver 承诺本来就没有约束对象;需要
+# 0.x 自由度的是 funget-core 那 9 个 pub mod。
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Concurrent HTTP downloader and uploader with resume support"
+readme = "README.md"
+keywords = ["download", "http", "range", "resume", "cli"]
+categories = ["command-line-utilities", "web-programming::http-client"]
+
+# 包名就是 funget,所以 `cargo install funget` 直接装出下面那个 funget 命令。
+# 库 target 同名,给 PyO3 扩展(funget-py)复用同一套 clap 解析。
+[lib]
+name = "funget"
+path = "src/lib.rs"
+
+# 二进制就叫 funget —— 和 pip 安装出来的那个入口同名,两条分发渠道用法完全一致。
+[[bin]]
+name = "funget"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+env_logger.workspace = true
+funget-core.workspace = true
+log.workspace = true
