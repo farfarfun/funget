@@ -6,9 +6,10 @@ members = ["crates/funget-core", "crates/funget", "crates/funget-py"]
 resolver = "2"
 
 [workspace.package]
-# crates/funget-py(PyO3 扩展)和 crates/funget(CLI 二进制)跟这个号走 —— 前者
-# 必须和 pyproject.toml 一致,后者的 `--version` 要在 pip 和 cargo install 两条渠道
-# 报同一个值。由 funbuild 在发版时同步写入。
+# crates/funget-py(PyO3 扩展)和 crates/funget(CLI 二进制)跟这个号走。前者必须
+# 和 pyproject.toml 一致;后者同号是为了「一个版本号对应一次 release、一套附件、
+# 一个 wheel」—— 1.2.0 之前这是硬约束(pip 也会装出 funget 命令,两条渠道的
+# `--version` 必须一致),现在是约定。由 funbuild 在发版时同步写入。
 #
 # crates/funget-core 例外:它作为库发到 crates.io,维护独立的 0.x 版本线,不写
 # `version.workspace = true`。详见该 crate 的 Cargo.toml 注释。
