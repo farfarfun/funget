@@ -97,7 +97,9 @@ jobs:
           # 没装出来：[project.scripts] 哪天被顺手加回去，这里会先红。
           # 查的是这个 distribution 自己的 entry point，不是 `command -v funget`
           # ——runner 上完全可能有别处装的同名命令，那个查法证明不了什么。
-          python -c "import importlib.metadata as m; cs=[e for e in m.distribution('funget').entry_points if e.group=='console_scripts']; assert not cs, cs; print('ok: wheel 不带 console_scripts')"
+          # 打印的字串必须是纯 ASCII：Windows runner 上 Python 的 stdout 是
+          # cp1252，print 中文直接 UnicodeEncodeError，断言过了也会把 job 弄红。
+          python -c "import importlib.metadata as m; cs=[e for e in m.distribution('funget').entry_points if e.group=='console_scripts']; assert not cs, cs; print('ok: no console_scripts in wheel')"
 
       - uses: actions/upload-artifact@v4
         with:
