@@ -13,7 +13,7 @@ resolver = "2"
 #
 # crates/funget-core 例外:它作为库发到 crates.io,维护独立的 0.x 版本线,不写
 # `version.workspace = true`。详见该 crate 的 Cargo.toml 注释。
-version = "1.1.73"
+version = "1.2.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/farfarfun/funget"
