@@ -8,8 +8,9 @@
 
 - 项目名称：funget
 - 项目简介：HTTP 并发下载与上传。Rust 实现，三个分发渠道共用同一套引擎 ——
-  PyPI 上的 `funget`（PyO3 扩展，Python API + `funget` 命令）、crates.io 上的
+  PyPI 上的 `funget`（PyO3 扩展，**只有 Python API，不含命令行**）、crates.io 上的
   `funget-core`（Rust 库）和 `funget`（CLI），以及 GitHub Release 上的独立二进制。
+  命令行有 apt / brew / `cargo install` / Release 二进制四条渠道，都不经过 Python。
 - 项目负责人：farfarfun
 - 代码仓库：<https://github.com/farfarfun/funget>
 

@@ -1,7 +1,10 @@
 //! funget 命令行的全部逻辑。
 //!
-//! 刻意做成 lib + bin 两个 target:独立二进制和 PyO3 扩展导出的 `cli_main`
-//! 都调用这里的 [`run`],两条分发渠道不存在两套 CLI 实现。
+//! 做成 lib + bin 两个 target。原来是为了让 PyO3 扩展导出的 `cli_main` 和独立
+//! 二进制共用同一个 [`run`];wheel 不再带 `funget` 命令之后,那个调用方没有了,
+//! 现在 `main.rs` 是唯一的消费者。仍然保留 lib,是因为下面那 12 个 clap 解析的
+//! 单元测试要能 `use` 到它 —— bin-only 的 crate 测起来只能靠 `assert_cmd` 之类
+//! 真的去 fork 进程。
 
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -280,7 +283,7 @@ where
 fn init_logging(verbose: bool) {
     let default = if verbose { "debug" } else { "info" };
     // RUST_LOG 优先,没设就用上面的默认级别。重复初始化(同进程里多次调用
-    // `cli_main`)会返回 Err,忽略即可。
+    // [`run`],比如单元测试)会返回 Err,忽略即可。
     let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(default))
         .format_timestamp_secs()
         .try_init();

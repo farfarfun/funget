@@ -8,7 +8,7 @@ funget 有五条分发渠道。前两条（apt / brew）要靠组织的共享包
 | --- | --- |
 | `apt-get install funget` | `farfarfun/packages` 拉本仓库 Release 里的 `.deb`，重建签名索引发到 Pages |
 | `brew install funget` | `farfarfun/packages` 按 `SHA256SUMS` 渲染 formula，提交回它自己的 `Formula/`（那个仓库同时就是 tap） |
-| `pip install funget` | 本仓库 → PyPI（`wheels` / `sdist` / `publish`） |
+| `pip install funget` | 本仓库 → PyPI（`wheels` / `sdist` / `publish`）。只有 Python API，**不装 `funget` 命令** |
 | `cargo install funget` | 本仓库 → crates.io（`crates`） |
 | 裸二进制 / tarball | 本仓库 → GitHub Release |
 
@@ -17,7 +17,7 @@ funget 有五条分发渠道。前两条（apt / brew）要靠组织的共享包
 要做的只是把资产挂到 Release 上，并在那边的 `packages.toml` 里登记三行。
 
 **一个 secret 都没有，这是故意的。**发完版后新版本什么时候出现在 `apt` 里，取决
-于共享仓库那边每天 04:17 的兜底 cron —— 最多等一天。想立刻生效就手动触发它：
+于共享仓库那边每两小时一次的 cron —— 最多等两小时。想立刻生效就手动触发它：
 
 ```bash
 gh workflow run build.yml -R farfarfun/packages

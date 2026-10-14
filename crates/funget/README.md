@@ -41,9 +41,9 @@ funget info https://example.com/file.bin
 | | |
 | --- | --- |
 | [`funget-core`](https://crates.io/crates/funget-core) | 本工具的引擎,可独立作为 Rust 库使用 |
-| [`funget` on PyPI](https://pypi.org/project/funget/) | 同一套实现的 Python 扩展模块,`pip install funget` 也会提供 `funget` 命令 |
+| [`funget` on PyPI](https://pypi.org/project/funget/) | 同一套引擎的 Python 扩展模块。只有 Python API,**不提供 `funget` 命令** |
 
-本 crate 和 PyPI 上的 `funget` 共用同一个版本号,两条渠道装出来的 `funget --version`
-报同一个值。`funget-core` 作为库另走 0.x 线。
+本 crate 和 PyPI 上的 `funget` 共用同一个版本号,方便对照「这个命令对应哪个
+wheel」。`funget-core` 作为库另走 0.x 线。
 
 MIT。

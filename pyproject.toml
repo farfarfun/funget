@@ -34,8 +34,10 @@ email = "niuliangtao@qq.com"
 [[project.maintainers]]
 name = "farfarfun"
 email = "farfarfun@qq.com"
-[project.scripts]
-funget = "funget:_cli"
+# 没有 [project.scripts]。这个包只给 Python API,不装 funget 命令:命令行已经有
+# apt / brew / cargo install / Release 二进制四条路,而 pip 这条的代价是把整个
+# clap CLI 链进扩展模块,所有只用 download() 的人都得下载。顺带也不再和
+# /usr/bin/funget 抢 PATH。
 
 [project.urls]
 Organization = "https://github.com/farfarfun"

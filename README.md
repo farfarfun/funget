@@ -5,8 +5,11 @@ HTTP 文件传输工具，提供单线程下载、Range 并发下载、断点续
 
 ## 安装
 
-命令行是独立的原生二进制，**不需要 Python 环境**。下面五条渠道装出来的
+命令行是独立的原生二进制，**不需要 Python 环境**。下面四条渠道装出来的
 `funget` 命令是同一套实现，`funget --version` 报同一个版本号。
+
+`pip install funget` 不在其中 —— 它装的是 Python 库，**不带 `funget` 命令**，
+见后面的「作为 Python 库」。
 
 ### apt（Debian / Ubuntu）
 
@@ -45,15 +48,6 @@ formula 装的是预编好的二进制，不从源码编；它由
 [farfarfun/packages](https://github.com/farfarfun/packages) 按每次 release 的
 `SHA256SUMS` 统一渲染，和 APT 索引共用一个仓库。
 
-### 作为 Python 库
-
-```bash
-pip install funget
-```
-
-需要 Python 3.12 或更高版本。无任何运行时依赖，各平台提供预编译 wheel，
-安装时不需要 Rust 工具链。这条渠道同样会装上 `funget` 命令。
-
 ### cargo
 
 ```bash
@@ -79,9 +73,20 @@ gnu 版能用。其余情况一律优先 musl。
 
 附件的校验和在同一个 release 的 `SHA256SUMS` 里。
 
-> `apt` 装的是 `/usr/bin/funget`，`pip` 装的是虚拟环境或 `~/.local/bin` 下的同名
-> 命令。两者都在 PATH 里时以 PATH 顺序为准，`which -a funget` 能看到实际生效的
-> 是哪一个。
+### 作为 Python 库
+
+```bash
+pip install funget
+```
+
+需要 Python 3.12 或更高版本。无任何运行时依赖，各平台提供预编译 wheel，
+安装时不需要 Rust 工具链。
+
+**这条渠道只给 Python API，不装 `funget` 命令。**命令行走上面四条渠道的任意
+一条 —— 它们和 wheel 里的扩展模块是同一套引擎，只是分发方式不同。这么分是因为
+把 CLI 链进扩展模块会让每个 `pip install funget` 的人都下载一份 clap
+（约 500 KB，占扩展体积的 12%），而需要命令行的人装的通常也不是 wheel；顺带
+也不再出现 `pip` 的 `funget` 和 `/usr/bin/funget` 在 PATH 里打架。
 
 ### 作为 Rust 库
 

@@ -83,6 +83,3 @@ def single_upload(
     proxy: str | None = None,
 ) -> bool:
     """上传单个文件。``overwrite`` 仅为对齐签名保留,不起作用。"""
-
-def cli_main(argv: list[str]) -> int:
-    """执行命令行并返回退出码。"""

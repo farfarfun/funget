@@ -16,7 +16,9 @@ name = "_funget"
 crate-type = ["cdylib"]
 
 [dependencies]
-funget = { path = "../funget" }
+# 刻意不依赖 ../funget(CLI 那个 crate)。扩展模块只导出四个函数,命令行交给
+# apt / brew / cargo install / Release 里的二进制 —— 把 CLI 链进来等于让每个
+# `pip install funget` 的人都背上 clap 和 env_logger。
 funget-core.workspace = true
 pyo3 = { version = "0.29", features = ["extension-module"] }
 pyo3-log = "0.13"

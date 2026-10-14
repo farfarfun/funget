@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.2.0
+
+### 不兼容变更
+
+- **`pip install funget` 不再装 `funget` 命令。**wheel 里只剩 Python API 那四个
+  函数。命令行仍然有四条渠道 —— `apt`、`brew`、`cargo install funget`、Release
+  里的二进制 —— 都是同一套引擎，`funget --version` 报同一个号。
+
+  靠 `pip install funget` 拿命令行的用法要改成上面任意一条。只 `import funget`
+  调那四个函数的（组织内全部 16 个下游仓库都是这样，grep 过没有一个调命令行）
+  不受影响：签名、默认值、行为一个字没动。
+
+  这么改的原因是 1.1.73 把 apt 和 brew 两条渠道打通之后，pip 这条就只剩代价了：
+  它要把整个 clap CLI 链进扩展模块，所有只用 `download()` 的人都得跟着下载一份。
+  实测 wheel 从 2,172,674 字节降到 1,927,627（**-11%**），解压后的扩展模块
+  从 4,314,040 降到 3,783,152（-12%）。顺带也不再有 `pip` 的 `funget` 和
+  `/usr/bin/funget` 在 PATH 里打架的问题，README 里那条提醒可以删了。
+
+  具体改动：`pyproject.toml` 去掉 `[project.scripts]`，`funget._funget` 去掉
+  `cli_main`，`funget._cli` 一并删除，`funget-py` 不再依赖 `funget` 那个 crate。
+  `wheels` job 的冒烟测试改成断言 wheel **没有** `console_scripts`，
+  `[project.scripts]` 哪天被顺手加回来会先红。
+
+### 其它
+
+- Gitee 镜像（`sync-gitee.yml`）：连 Release 附件一起同步。组织级的 action-daily
+  只搬 git refs，而 funget 的交付物全在附件里 —— 接之前 Gitee 上有 102 个 tag、
+  0 个 release。从 GitHub 的 runner 去 gitee.com 经常 30s 读超时，所以失败一次
+  会自动重来一次（同步本身是幂等的）。
+
 ## 1.1.73
 
 纯分发层的一版，Rust 代码和两边的 API 一个字没动。

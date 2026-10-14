@@ -2,10 +2,10 @@
 name = "funget"
 # 跟着 workspace 版本走,也就是和 PyPI 上的 funget 同号。
 #
-# 这里**刻意**不像 funget-core 那样另起 0.x 线:clap 的 `--version` 取自本 crate 的
-# CARGO_PKG_VERSION,而这个二进制有两条分发渠道 —— `cargo install funget` 和
-# `pip install funget`。两边必须报同一个号,否则 `pip install funget==1.1.71` 装出来的
-# 命令会自报 0.1.0。
+# 原来这是硬性的:`pip install funget` 会装出 funget 命令,它和 `cargo install
+# funget` 装的必须报同一个 `--version`。wheel 不再带命令之后这条约束没了,但同号
+# 仍然留着 —— 一个版本号对应一次 release、一套附件、一个 wheel,查「这个命令是哪
+# 次发的」时不用在两条版本线之间换算。
 #
 # 代价可以接受:bin crate 不对外暴露 API,semver 承诺本来就没有约束对象;需要
 # 0.x 自由度的是 funget-core 那 9 个 pub mod。

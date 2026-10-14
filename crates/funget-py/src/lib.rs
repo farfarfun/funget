@@ -298,13 +298,6 @@ fn single_upload(
     py.detach(|| upload(url, filepath, &options))
 }
 
-/// `[project.scripts] funget` 的入口:把 `sys.argv` 转给原生 CLI。
-#[pyfunction]
-#[pyo3(signature = (argv))]
-fn cli_main(py: Python<'_>, argv: Vec<String>) -> i32 {
-    py.detach(|| funget::run(argv))
-}
-
 #[pymodule]
 fn _funget(module: &Bound<'_, PyModule>) -> PyResult<()> {
     // 把 Rust 的 log 宏接到 Python 的 logging 上,farlog/loguru 都能照常拦截,
@@ -315,6 +308,5 @@ fn _funget(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(multi_thread_download, module)?)?;
     module.add_function(wrap_pyfunction!(simple_download, module)?)?;
     module.add_function(wrap_pyfunction!(single_upload, module)?)?;
-    module.add_function(wrap_pyfunction!(cli_main, module)?)?;
     Ok(())
 }

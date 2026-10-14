@@ -93,7 +93,11 @@ jobs:
         run: |
           python -m pip install --find-links dist --no-index funget
           python -c "import funget; print(funget.download, funget.single_upload)"
-          funget --help
+          # wheel 刻意不带 funget 命令（CLI 走 apt/brew/cargo/二进制）。断言它真的
+          # 没装出来：[project.scripts] 哪天被顺手加回去，这里会先红。
+          # 查的是这个 distribution 自己的 entry point，不是 `command -v funget`
+          # ——runner 上完全可能有别处装的同名命令，那个查法证明不了什么。
+          python -c "import importlib.metadata as m; cs=[e for e in m.distribution('funget').entry_points if e.group=='console_scripts']; assert not cs, cs; print('ok: wheel 不带 console_scripts')"
 
       - uses: actions/upload-artifact@v4
         with:
