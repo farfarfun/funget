@@ -16,10 +16,10 @@ funget download https://example.com/file.bin -o file.bin
 funget download https://example.com/huge.iso --worker 8 --block-size 50
 funget download https://example.com/huge.iso --resume   # 中断后重跑继续
 funget upload ./file.bin https://example.com/upload
-funget info https://example.com/file.bin
+funget info --json https://example.com/file.bin
 ```
 
-`download` 默认自动选路:文件超过 10 MiB 且服务端支持 Range 就并发分块,否则单线程。
+`download` 默认走分块下载路径。加上 `--auto` 后，文件超过 10 MiB 且服务端支持 Range 时走分块下载，其余情况走单线程。
 `--single` 强制走单线程。
 
 | 选项 | 默认 | 说明 |
@@ -28,6 +28,7 @@ funget info https://example.com/file.bin
 | `-w, --worker` | 10 | 并发数 |
 | `-b, --block-size` | 100 | 分块大小,单位 MiB |
 | `-r, --max-retries` | 3 | 单请求重试次数,退避 `2^n` 秒 |
+| `--auto` | 关 | 根据文件大小和 Range 支持选择下载策略 |
 | `--single` | 关 | 强制单线程 |
 | `--overwrite` | 关 | 文件已完整也重新下载 |
 | `--resume` | 关 | 断点续传 |

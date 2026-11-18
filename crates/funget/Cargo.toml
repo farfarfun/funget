@@ -35,3 +35,4 @@ clap.workspace = true
 env_logger.workspace = true
 funget-core.workspace = true
 log.workspace = true
+serde_json.workspace = true

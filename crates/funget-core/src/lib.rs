@@ -63,8 +63,9 @@ pub fn file_info(url: &str, filepath: &str, options: &DownloadOptions) -> Result
     let transport = client::Transport::new(options.http.clone())?;
 
     runtime.block_on(async move {
-        let probe = probe::probe_size(&transport, url).await;
-        let range = probe::probe_range_support(&transport, probe.request_url(url)).await;
+        let mut probe = probe::SizeProbe::default();
+        probe::read_size(&transport, url, &mut probe).await?;
+        let range = probe::range_after_size(&transport, url, &probe).await;
         Ok(FileInfo {
             url: url.to_string(),
             filepath: filepath.to_string(),

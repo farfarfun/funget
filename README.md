@@ -109,7 +109,16 @@ funget download https://httpbin.org/bytes/1024 --worker 8 --block-size 50
 funget download https://httpbin.org/bytes/1024 -o file.bin --resume   # 中断后重跑继续
 funget upload ./file.bin https://httpbin.org/put
 funget info https://httpbin.org/bytes/1024
+funget info --json https://httpbin.org/bytes/1024
+funget download --auto https://httpbin.org/bytes/1024 -o file.bin
 ```
+
+`download` 默认走分块下载路径。`--auto` 根据大小和 Range 支持选择策略，文件超过
+10 MiB 且服务端支持 Range 时使用分块下载，其余情况使用单线程。`--single` 强制单线程。
+
+`info --json` 每次成功时在标准输出写一个 JSON 对象，包含 `url`、`final_url`
+（无重定向时为 `null`）、`filename`、`filesize`（字节，空文件或大小未知时为 0）
+和布尔值 `supports_range`。文件信息探测失败时退出码为 1，诊断信息写入标准错误。
 
 `download`、`upload`、`info` 三个子命令共用一组 HTTP 开关，短选项与 `curl` 对齐：
 

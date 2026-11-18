@@ -449,6 +449,7 @@ dependencies = [
  "env_logger",
  "funget-core",
  "log",
+ "serde_json",
 ]
 
 [[package]]

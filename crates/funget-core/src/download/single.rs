@@ -51,7 +51,11 @@ pub(crate) async fn run(
         return true;
     }
 
-    if !validate_url(transport, url).await {
+    let valid = match probe.head_status {
+        Some(status) => status < 400,
+        None => validate_url(transport, url).await,
+    };
+    if !valid {
         log::error!("无效的 URL: {}", safe_url(url));
         return false;
     }

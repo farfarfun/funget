@@ -1,7 +1,8 @@
-use reqwest::header::{HeaderMap, HeaderValue, RANGE};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_LENGTH, RANGE};
 use reqwest::Method;
 
 use crate::client::Transport;
+use crate::error::{Error, Result};
 use crate::url::safe_url;
 
 /// 远端文件元数据,对应 Python 的 `Downloader.get_file_info()` 与
@@ -86,9 +87,20 @@ fn validators(response: &reqwest::Response) -> (Option<String>, Option<String>) 
 ///
 /// 任何失败都折叠成 `size = 0`,与 Python 一致 —— 调用方据此退回单线程。
 pub async fn probe_size(transport: &Transport, url: &str) -> SizeProbe {
+    let mut probe = SizeProbe::default();
+    if let Err(error) = read_size(transport, url, &mut probe).await {
+        log::error!("探测 {} 文件大小失败: {error}", safe_url(url));
+    }
+    probe
+}
+
+pub(crate) async fn read_size(
+    transport: &Transport,
+    url: &str,
+    probe: &mut SizeProbe,
+) -> Result<()> {
     let retries = transport.config().max_retries;
     let empty = HeaderMap::new();
-    let mut probe = SizeProbe::default();
 
     match transport.send(Method::HEAD, url, retries, &empty).await {
         Ok(response) => {
@@ -96,12 +108,18 @@ pub async fn probe_size(transport: &Transport, url: &str) -> SizeProbe {
             probe.head_status = Some(status.as_u16());
             if status.is_success() {
                 (probe.etag, probe.last_modified) = validators(&response);
-                let size = response.content_length().unwrap_or(0);
+                // HEAD 的响应体为空，文件大小在响应头里。
+                let size = response
+                    .headers()
+                    .get(CONTENT_LENGTH)
+                    .and_then(|value| value.to_str().ok())
+                    .and_then(|value| value.parse::<u64>().ok())
+                    .unwrap_or(0);
                 // 注意是 `> 0` 才认:HEAD 不带 Content-Length 时要继续试 GET,
                 // 这正是 Python 那段 `if size > 0: return size` 的语义。
                 if size > 0 {
                     probe.size = size;
-                    return probe;
+                    return Ok(());
                 }
             } else {
                 log::warn!("HEAD {} 返回 {status},改用 GET 探测大小", safe_url(url));
@@ -111,21 +129,16 @@ pub async fn probe_size(transport: &Transport, url: &str) -> SizeProbe {
     }
 
     // 流式 GET:只读响应头,Response 一旦 drop 连接就断,不会真的拉完整个文件。
-    match transport.send(Method::GET, url, retries, &empty).await {
-        Ok(response) if response.status().is_success() => {
-            probe.final_url = redirected_to(&response, url);
-            (probe.etag, probe.last_modified) = validators(&response);
-            probe.size = response.content_length().unwrap_or(0);
-        }
-        Ok(response) => log::error!(
-            "探测 {} 文件大小失败: 状态码 {}",
-            safe_url(url),
-            response.status()
-        ),
-        Err(error) => log::error!("探测 {} 文件大小失败: {error}", safe_url(url)),
+    let response = transport.send(Method::GET, url, retries, &empty).await?;
+    if !response.status().is_success() {
+        return Err(Error::Status {
+            status: response.status().as_u16(),
+        });
     }
-
-    probe
+    probe.final_url = redirected_to(&response, url);
+    (probe.etag, probe.last_modified) = validators(&response);
+    probe.size = response.content_length().unwrap_or(0);
+    Ok(())
 }
 
 /// 复刻 `MultiDownloader.check_available()`:发 `Range: bytes=0-100`,仅当 206 才算支持。
@@ -156,6 +169,19 @@ pub async fn probe_range_support(transport: &Transport, url: &str) -> RangeProbe
             RangeProbe::default()
         }
     }
+}
+
+pub(crate) async fn range_after_size(
+    transport: &Transport,
+    url: &str,
+    probe: &SizeProbe,
+) -> RangeProbe {
+    let request_url = transport.redirect_request_url(url, probe.request_url(url));
+    let mut range = probe_range_support(transport, request_url).await;
+    if request_url != url && range.final_url.is_none() {
+        range.final_url.clone_from(&probe.final_url);
+    }
+    range
 }
 
 /// 复刻 `Downloader.validate_url()`:HEAD 且状态码 `< 400`。

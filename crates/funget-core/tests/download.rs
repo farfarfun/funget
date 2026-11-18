@@ -91,7 +91,7 @@ fn skips_when_the_local_file_is_already_complete() {
 fn auto_select_uses_the_ten_mib_boundary() {
     let dir = tempfile::tempdir().expect("创建临时目录");
 
-    // 恰好 10 MiB —— 单线程。观测点:除了 Range 支持探测之外没有别的 Range 请求。
+    // 恰好 10 MiB —— 单线程。只需一次 HEAD 和一次完整 GET。
     let server = TestServer::start(payload(10 * MIB));
     let target = dir.path().join("exactly.bin");
     assert!(download_auto(
@@ -100,11 +100,8 @@ fn auto_select_uses_the_ten_mib_boundary() {
         None,
         &options(|_| {})
     ));
-    assert_eq!(
-        server.ranges().len(),
-        1,
-        "恰好 10 MiB 应当走单线程,只应有一次 Range 探测"
-    );
+    assert!(server.ranges().is_empty());
+    assert_eq!(server.request_count(), 2);
 
     // 10 MiB + 1 —— 多线程。
     let server = TestServer::start(payload(10 * MIB + 1));
@@ -619,6 +616,43 @@ fn redirect_is_resolved_once_regardless_of_concurrency() {
         "期望多个分块落在解析后的地址上,实际: {:?}",
         chunk_ranges(&target)
     );
+}
+
+#[test]
+fn authenticated_chunks_follow_the_clients_redirect_policy() {
+    let body = payload(2 * MIB);
+    let (origin, target) = redirecting_pair(body.clone());
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("out.bin");
+    assert!(download_multi(
+        &origin.url(),
+        path.to_str().unwrap(),
+        &options(|o| {
+            o.block_size = 1;
+            o.http.auth = Some(funget_core::Auth {
+                username: "alice".into(),
+                password: "test".into(),
+            });
+        })
+    ));
+    assert_eq!(std::fs::read(path).unwrap(), body);
+    assert!(origin.last_header("authorization").is_some());
+    assert!(target.last_header("authorization").is_none());
+}
+
+#[test]
+fn info_distinguishes_an_empty_resource_from_a_missing_one() {
+    let server = TestServer::start(Vec::new());
+    let info = || funget_core::file_info(&server.url(), "file.bin", &options(|_| {}));
+    assert_eq!(info().unwrap().filesize, 0);
+    server.set_behavior(Behavior {
+        status_override: Some(404),
+        ..Default::default()
+    });
+    assert!(matches!(
+        info(),
+        Err(funget_core::Error::Status { status: 404 })
+    ));
 }
 
 /// 续传指纹必须记**原始**地址:重定向目标换了也要认出是同一份文件。

@@ -10,7 +10,7 @@ use reqwest::Method;
 use crate::client::Transport;
 use crate::error::{Error, Result};
 use crate::io::{already_complete, ensure_parent_dir, write_at};
-use crate::probe::{probe_range_support, SizeProbe};
+use crate::probe::{range_after_size, SizeProbe};
 use crate::progress::Progress;
 use crate::resume::{self, BlockState, ResumeState, Tracker};
 
@@ -72,11 +72,11 @@ pub(crate) async fn run(
     options: &DownloadOptions,
 ) -> bool {
     let probe = super::resolve_probe(transport, url, options).await;
-    let range = probe_range_support(transport, probe.request_url(url)).await;
+    let range = range_after_size(transport, url, &probe).await;
     run_prepared(
         transport,
         url,
-        range.final_url.as_deref().unwrap_or(probe.request_url(url)),
+        range.final_url.as_deref().unwrap_or(url),
         filepath,
         &probe,
         range.supports,
@@ -107,6 +107,7 @@ pub(crate) async fn run_prepared(
     supports_range: bool,
     options: &DownloadOptions,
 ) -> bool {
+    let chunk_url = transport.redirect_request_url(url, chunk_url);
     let path = Path::new(filepath);
     let filename = path
         .file_name()

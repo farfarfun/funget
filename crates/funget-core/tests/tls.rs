@@ -109,7 +109,7 @@ async fn handle(acceptor: TlsAcceptor, stream: tokio::net::TcpStream) {
     if tls.write_all(head.as_bytes()).await.is_err() {
         return;
     }
-    // HEAD 只回头不回体 —— `probe_size` 和 `validate_url` 各发一次 HEAD。
+    // HEAD 只返回响应头。
     if !seen.starts_with(b"HEAD") {
         let _ = tls.write_all(BODY).await;
     }

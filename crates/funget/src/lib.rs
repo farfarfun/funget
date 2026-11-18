@@ -158,6 +158,10 @@ fn parse_user(raw: &str) -> std::result::Result<Auth, String> {
 pub struct InfoArgs {
     pub url: String,
 
+    /// Print remote file metadata as JSON.
+    #[arg(long)]
+    pub json: bool,
+
     #[command(flatten)]
     pub http: HttpArgs,
 }
@@ -182,6 +186,10 @@ pub struct DownloadArgs {
     /// Retries per request.
     #[arg(short = 'r', long, default_value_t = 3)]
     pub max_retries: u32,
+
+    /// Select the download strategy by file size and Range support.
+    #[arg(long, conflicts_with = "single")]
+    pub auto: bool,
 
     /// Force the single-threaded path.
     #[arg(long)]
@@ -303,13 +311,8 @@ fn download(args: DownloadArgs) -> i32 {
         ..DownloadOptions::default()
     };
 
-    let succeeded = if args.single {
-        funget_core::download_single(&args.url, &destination, &options)
-    } else {
-        funget_core::download_multi(&args.url, &destination, &options)
-    };
-
-    if succeeded {
+    let multi = if args.auto { None } else { Some(!args.single) };
+    if funget_core::download_auto(&args.url, &destination, multi, &options) {
         log::info!("Download completed: {destination}");
         0
     } else {
@@ -354,6 +357,19 @@ fn info(args: InfoArgs) -> i32 {
         ..DownloadOptions::default()
     };
     match funget_core::file_info(url, &filename, &options) {
+        Ok(details) if args.json => {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "url": details.url,
+                    "final_url": details.final_url,
+                    "filename": details.filename,
+                    "filesize": details.filesize,
+                    "supports_range": details.supports_range,
+                })
+            );
+            0
+        }
         Ok(details) => {
             println!("URL: {}", details.url);
             // 只在真的发生了重定向时多打这一行:没重定向的输出仍是原来的四行。
@@ -471,6 +487,13 @@ mod tests {
         assert_eq!(args.block_size, 7);
         assert_eq!(args.max_retries, 2);
         assert!(args.single && args.overwrite && args.resume);
+    }
+
+    #[test]
+    fn auto_and_single_are_mutually_exclusive() {
+        let error = Cli::try_parse_from(["funget", "download", "http://x/y", "--auto", "--single"])
+            .unwrap_err();
+        assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
     }
 
     #[test]

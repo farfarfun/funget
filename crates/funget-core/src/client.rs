@@ -180,6 +180,15 @@ impl Transport {
         &self.config
     }
 
+    /// 有认证或自定义请求头时，从原地址发起请求，让 HTTP 客户端处理每一跳的凭据。
+    pub(crate) fn redirect_request_url<'a>(&self, original: &'a str, resolved: &'a str) -> &'a str {
+        if self.config.auth.is_some() || !self.config.headers.is_empty() {
+            original
+        } else {
+            resolved
+        }
+    }
+
     /// 合并请求头。
     ///
     /// 顺序刻意与 Python 一致:`headers = {专属头}` 再 `headers.update(self.headers)`,

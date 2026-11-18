@@ -121,26 +121,19 @@ pub fn download_auto(
             Some(false) => single::run(&transport, url, filepath, None, options).await,
             None => {
                 let probe = resolve_probe(&transport, url, options).await;
-                let range =
-                    crate::probe::probe_range_support(&transport, probe.request_url(url)).await;
-                let supports_range = range.supports;
-                let use_multi = probe.size > MULTI_THREAD_THRESHOLD && supports_range;
-
-                log::info!(
-                    "自动选择{}下载(文件大小 {} 字节,Range 支持: {supports_range})",
-                    if use_multi { "多线程" } else { "单线程" },
-                    probe.size
-                );
-
-                if use_multi {
-                    let chunk_url = range.final_url.as_deref().unwrap_or(probe.request_url(url));
+                if probe.size <= MULTI_THREAD_THRESHOLD {
+                    return single::run(&transport, url, filepath, Some(probe), options).await;
+                }
+                let range = crate::probe::range_after_size(&transport, url, &probe).await;
+                if range.supports {
+                    let chunk_url = range.final_url.as_deref().unwrap_or(url);
                     multi::run_prepared(
                         &transport,
                         url,
                         chunk_url,
                         filepath,
                         &probe,
-                        supports_range,
+                        range.supports,
                         options,
                     )
                     .await
