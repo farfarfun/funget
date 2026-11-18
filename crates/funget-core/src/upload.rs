@@ -31,6 +31,8 @@ pub struct UploadOptions {
     pub headers: HeaderMap,
     pub auth: Option<Auth>,
     pub progress: bool,
+    /// 将进度定期写成纯文本行，可用于重定向的 stderr。
+    pub plain_progress: bool,
     /// TLS 信任源、重定向策略、代理 —— 与下载共用同一个结构体。
     pub transport: TransportOptions,
 }
@@ -46,6 +48,7 @@ impl Default for UploadOptions {
             headers: HeaderMap::new(),
             auth: None,
             progress: true,
+            plain_progress: false,
             transport: TransportOptions::default(),
         }
     }
@@ -130,7 +133,12 @@ async fn run(
     } else {
         format!("{}--", options.prefix)
     };
-    let progress = Progress::new(filesize, &prefix, options.progress);
+    let progress = Progress::with_output(
+        Some(filesize),
+        &prefix,
+        options.progress,
+        options.plain_progress,
+    );
 
     let filename = path
         .file_name()
@@ -146,16 +154,14 @@ async fn run(
         let result = if method == "PUT" {
             send_put(&transport, url, path, filesize, &progress, options).await
         } else {
-            send_post(&transport, url, path, filesize, &filename, options).await
+            send_post(
+                &transport, url, path, filesize, &filename, &progress, options,
+            )
+            .await
         };
 
         match result {
             Ok(()) => {
-                // POST 走 multipart,进度无法分块回报,成功后一次性补满 ——
-                // 与 Python 的 `if method == "POST": pbar.update(filesize)` 一致。
-                if method == "POST" {
-                    progress.inc(filesize);
-                }
                 progress.finish();
                 log::info!("上传完成: {}", path.display());
                 return Ok(true);
@@ -176,6 +182,19 @@ async fn run(
     Ok(false)
 }
 
+async fn upload_body(path: &Path, chunk_size: usize, progress: &Progress) -> Result<Body> {
+    let file = tokio::fs::File::open(path).await?;
+    let progress = progress.clone();
+    // 每读出一块就推进进度条,与 Python 的 `chunks()` 生成器里 `pbar.update` 等价。
+    let stream = ReaderStream::with_capacity(file, chunk_size).map(move |chunk| {
+        if let Ok(bytes) = &chunk {
+            progress.inc(bytes.len() as u64);
+        }
+        chunk
+    });
+    Ok(Body::wrap_stream(stream))
+}
+
 async fn send_put(
     transport: &Transport,
     url: &str,
@@ -184,23 +203,13 @@ async fn send_put(
     progress: &Progress,
     options: &UploadOptions,
 ) -> Result<()> {
-    let file = tokio::fs::File::open(path).await?;
-    let progress = progress.clone();
-    // 每读出一块就推进进度条,与 Python 的 `chunks()` 生成器里 `pbar.update` 等价。
-    let stream = ReaderStream::with_capacity(file, options.chunk_size as usize).map(move |chunk| {
-        if let Ok(bytes) = &chunk {
-            progress.inc(bytes.len() as u64);
-        }
-        chunk
-    });
-
     let mut headers = options.headers.clone();
     headers.insert(CONTENT_LENGTH, HeaderValue::from(filesize));
     headers.insert(CONTENT_TYPE, HeaderValue::from_static(OCTET_STREAM));
 
     let response = transport
         .request(Method::PUT, url, &headers)
-        .body(Body::wrap_stream(stream))
+        .body(upload_body(path, options.chunk_size as usize, progress).await?)
         .send()
         .await?;
     check(response)
@@ -212,12 +221,12 @@ async fn send_post(
     path: &Path,
     filesize: u64,
     filename: &str,
+    progress: &Progress,
     options: &UploadOptions,
 ) -> Result<()> {
-    let file = tokio::fs::File::open(path).await?;
     // 流式 multipart:带上长度,免得退化成 chunked 传输 —— 不少对象存储网关不收 chunked。
     let part = reqwest::multipart::Part::stream_with_length(
-        Body::wrap_stream(ReaderStream::new(file)),
+        upload_body(path, options.chunk_size as usize, progress).await?,
         filesize,
     )
     .file_name(filename.to_string())

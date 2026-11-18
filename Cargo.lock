@@ -443,18 +443,19 @@ dependencies = [
 
 [[package]]
 name = "funget"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "clap",
  "env_logger",
  "funget-core",
  "log",
+ "ring",
  "serde_json",
 ]
 
 [[package]]
 name = "funget-core"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "futures-util",
  "indicatif",
@@ -473,7 +474,7 @@ dependencies = [
 
 [[package]]
 name = "funget-py"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "funget-core",
  "pyo3",

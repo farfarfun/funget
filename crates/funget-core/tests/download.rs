@@ -327,6 +327,15 @@ fn single_download_resumes_and_restarts_correctly() {
     assert_eq!(partial, 32 * 1024, "单线程是顺序写,文件长度就是已完成量");
     assert!(sidecar(&target).exists());
 
+    // 模拟 Ctrl+C 前最后几次写入已落盘，状态文件还停在 32 KiB。
+    use std::io::Write;
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(&target)
+        .unwrap()
+        .write_all(&[0xff; 4096])
+        .unwrap();
+
     server.set_behavior(Behavior::default());
     let before = server.ranges().len();
     assert!(download_single(

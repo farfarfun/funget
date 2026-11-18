@@ -32,6 +32,8 @@ funget info --json https://example.com/file.bin
 | `--single` | 关 | 强制单线程 |
 | `--overwrite` | 关 | 文件已完整也重新下载 |
 | `--resume` | 关 | 断点续传 |
+| `--sha256 HEX` | 关 | 校验下载结果，包括已存在的同大小文件 |
+| `--progress=plain` | 终端进度条 | 每 5 秒和传输结束时向 stderr 写一行进度，上传同样支持 |
 
 开启 `--resume` 后会在目标文件旁维护 `<文件名>.funget.json` 状态文件,下载成功后自动
 删除。远端文件若发生变化(ETag、Last-Modified 或大小不匹配),续传状态会被丢弃并重新

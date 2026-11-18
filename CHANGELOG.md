@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0（funget-core 0.3.0）
+
+- Rust 调用方若逐字段构造 `DownloadOptions` 或 `UploadOptions`，升级时需补上 `plain_progress: false`。使用 `..Default::default()` 的调用方自动获得默认值。
+
+- 单线程下载可从最后保存的断点恢复，重新获取中断前尚未记录的尾部。
+- CLI 的 `download --sha256 HEX` 支持校验新下载和按大小跳过的已有文件。
+- 下载与上传支持 `--progress=plain`。未知总大小时显示传输量、速度与耗时，multipart 上传按已读取的文件字节更新进度。
+
 ## 1.3.0（funget-core 0.2.1）
 
 - CLI 新增 `download --auto` 和 `info --json`。文件信息探测失败时，`info` 返回退出码 1。

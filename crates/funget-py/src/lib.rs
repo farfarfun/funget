@@ -117,6 +117,7 @@ fn download(
             transport_options(insecure, cacert, proxy),
         ),
         progress: true,
+        plain_progress: false,
         resume,
         known_size: filesize,
     };
@@ -293,6 +294,7 @@ fn single_upload(
         headers: headers.map(headers_from_pairs).unwrap_or_default(),
         auth: auth.map(|(username, password)| Auth { username, password }),
         progress: true,
+        plain_progress: false,
         transport: transport_options(insecure, cacert, proxy),
     };
     py.detach(|| upload(url, filepath, &options))

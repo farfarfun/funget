@@ -3,7 +3,7 @@ use std::io::Write;
 use std::path::Path;
 
 use futures_util::StreamExt;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_LENGTH, IF_RANGE, RANGE};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_LENGTH, CONTENT_RANGE, IF_RANGE, RANGE};
 use reqwest::Method;
 
 use crate::client::Transport;
@@ -90,9 +90,6 @@ async fn download_stream(
 ) -> Result<bool> {
     let filesize = probe.size;
 
-    // 续传偏移。单线程路径是顺序追加写,所以「已完成的字节数」就是文件的当前长度 ——
-    // 但光有长度不够:谁也不能保证本地那个半截文件来自同一个 URL。所以仍然靠
-    // sidecar 的指纹(URL + 大小 + ETag/Last-Modified)来决定能不能接着下。
     let restored = if options.resume && filesize > 0 {
         resume::load(path).filter(|state| {
             state.matches(
@@ -107,15 +104,12 @@ async fn download_stream(
         None
     };
     let local_len = std::fs::metadata(path).map(|meta| meta.len()).unwrap_or(0);
-    // 状态文件记的完成量必须和磁盘上真实的文件长度对得上,否则一律从头来。
-    let mut offset = match &restored {
-        Some(state) if state.completed_bytes() == local_len && local_len < filesize => local_len,
-        Some(_) => {
-            log::info!("续传状态与本地文件长度不一致,重新下载");
-            0
-        }
-        None => 0,
-    };
+    // Ctrl+C 可能发生在两次状态保存之间，只信任最后一个检查点。
+    let mut offset = restored
+        .as_ref()
+        .map(ResumeState::completed_bytes)
+        .filter(|&done| done <= local_len && local_len <= filesize && done < filesize)
+        .unwrap_or(0);
 
     let mut extra = HeaderMap::new();
     if offset > 0 {
@@ -140,34 +134,58 @@ async fn download_stream(
         .send(Method::GET, url, transport.config().max_retries, &extra)
         .await?;
     let status = response.status();
-    if status.as_u16() >= 400 {
+    if !status.is_success() {
         return Err(crate::error::Error::Status {
             status: status.as_u16(),
         });
     }
 
-    if offset > 0 && status.as_u16() != 206 {
-        // 服务端没接受 Range(资源变了,或压根不支持)—— 整个重下。
-        log::info!("服务端返回 {status},放弃续传并从头下载");
-        offset = 0;
+    if offset > 0 {
+        match status.as_u16() {
+            206 => {
+                let expected = format!("bytes {offset}-{}/{filesize}", filesize - 1);
+                if response
+                    .headers()
+                    .get(CONTENT_RANGE)
+                    .and_then(|v| v.to_str().ok())
+                    != Some(&expected)
+                {
+                    return Err(crate::error::Error::invalid(
+                        "续传响应的 Content-Range 与断点不符",
+                    ));
+                }
+            }
+            200 => offset = 0,
+            _ => {
+                return Err(crate::error::Error::Status {
+                    status: status.as_u16(),
+                })
+            }
+        }
     }
 
     // Python 只是告警、并不中止(`download/single.py:68`),这里保持一致。
     if let Some(value) = response.headers().get(CONTENT_LENGTH) {
         if let Some(declared) = value.to_str().ok().and_then(|s| s.parse::<u64>().ok()) {
-            if declared + offset != filesize && filesize > 0 {
+            if filesize > 0 && declared != filesize - offset {
                 log::warn!("Content-Length 不符: 期望 {filesize},实际 {declared}(偏移 {offset})");
             }
         }
     }
 
     let total = if filesize > 0 {
-        filesize
+        Some(filesize)
     } else {
-        response.content_length().unwrap_or(0)
+        response.content_length()
     };
 
     let mut file = open_target(path, offset)?;
+    if offset > 0 {
+        log::info!(
+            "已从断点恢复 {}（{offset} 字节）",
+            indicatif::BinaryBytes(offset)
+        );
+    }
 
     let blocks = if filesize > 0 {
         vec![(0, filesize - 1)]
@@ -187,8 +205,8 @@ async fn download_stream(
     let tracker = Tracker::new(path, state, options.resume && !blocks.is_empty());
     tracker.flush();
 
-    let progress = Progress::new(total, prefix, options.progress);
-    progress.inc(offset);
+    let progress = Progress::with_output(total, prefix, options.progress, options.plain_progress);
+    progress.restore(offset);
 
     let mut downloaded = offset;
     let mut stream = response.bytes_stream();
@@ -250,12 +268,15 @@ async fn download_stream(
 fn open_target(path: &Path, offset: u64) -> std::io::Result<File> {
     if offset > 0 {
         let file = OpenOptions::new().append(true).open(path)?;
-        // 追加模式下写入位置由内核决定,这里只校验它确实等于我们请求的偏移。
-        if file.metadata()?.len() != offset {
+        let length = file.metadata()?.len();
+        if length < offset {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                "续传偏移与文件长度不符",
+                "本地文件短于续传检查点",
             ));
+        }
+        if length > offset {
+            file.set_len(offset)?;
         }
         Ok(file)
     } else {
@@ -273,14 +294,15 @@ mod tests {
     use crate::resume::sidecar_path;
 
     #[test]
-    fn append_mode_refuses_mismatched_offset() {
+    fn append_mode_discards_only_the_unconfirmed_tail() {
         let dir = tempfile::tempdir().expect("创建临时目录");
         let path = dir.path().join("partial.bin");
         std::fs::write(&path, b"0123456789").expect("写入半截文件");
 
         assert!(open_target(&path, 10).is_ok());
-        // 状态说已经下了 5 字节,磁盘上却有 10 字节 —— 必须拒绝,否则会写出错位的文件。
-        assert!(open_target(&path, 5).is_err());
+        assert!(open_target(&path, 11).is_err());
+        assert!(open_target(&path, 5).is_ok());
+        assert_eq!(std::fs::read(path).unwrap(), b"01234");
     }
 
     #[test]

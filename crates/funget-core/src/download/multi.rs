@@ -125,6 +125,10 @@ pub(crate) async fn run_prepared(
         return false;
     }
 
+    if filesize == 0 && probe.head_status.is_some_and(|s| (200..300).contains(&s)) {
+        return super::single::run(transport, url, filepath, Some(probe.clone()), options).await;
+    }
+
     let blocks = if supports_range {
         blocks_num(filesize, options.block_size)
     } else {
@@ -225,12 +229,13 @@ pub(crate) async fn run_prepared(
     let total_blocks = blocks_state.len();
     let finished_blocks = blocks_state.iter().filter(|b| b.is_complete()).count();
 
-    let progress = Progress::new(
-        filesize,
+    let progress = Progress::with_output(
+        Some(filesize),
         &format!("{}|0/{total_blocks}|", options.prefix),
         options.progress,
+        options.plain_progress,
     );
-    progress.inc(resumed_bytes);
+    progress.restore(resumed_bytes);
 
     let file = Arc::new(file);
     let pending: Vec<(usize, BlockState)> = blocks_state
@@ -327,7 +332,6 @@ async fn fetch_block(
             transport,
             url,
             file,
-            start,
             end,
             size,
             &mut cursor,
@@ -351,7 +355,6 @@ async fn fetch_once(
     transport: &Transport,
     url: &str,
     file: &File,
-    start: u64,
     end: u64,
     size: u64,
     cursor: &mut u64,
@@ -387,7 +390,7 @@ async fn fetch_once(
         // 服务端无视了 Range,整个文件都发过来了。只有「这个块本来就从 0 开始
         // 且长度正好对得上」才能用,否则直接判失败,免得把整文件写进某个分块的位置。
         let content_length = response.content_length().unwrap_or(0);
-        if start != 0 || (content_length != 0 && content_length != size) {
+        if *cursor != 0 || (content_length != 0 && content_length != size) {
             return Ok(false);
         }
     }

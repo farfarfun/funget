@@ -36,3 +36,4 @@ env_logger.workspace = true
 funget-core.workspace = true
 log.workspace = true
 serde_json.workspace = true
+ring = "0.17"

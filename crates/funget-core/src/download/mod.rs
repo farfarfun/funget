@@ -29,6 +29,8 @@ pub struct DownloadOptions {
     pub http: HttpConfig,
     /// 是否绘制进度条(非终端环境下无论如何都不绘制)。
     pub progress: bool,
+    /// 将进度定期写成纯文本行，可用于重定向的 stderr。
+    pub plain_progress: bool,
     /// 是否启用断点续传。
     ///
     /// 默认关闭,因为它是**纯新增**能力:Python 版没有,打开会在目标文件旁边多出一个
@@ -56,6 +58,7 @@ impl Default for DownloadOptions {
             max_retries: 3,
             http: HttpConfig::default(),
             progress: true,
+            plain_progress: false,
             resume: false,
             known_size: None,
         }

@@ -94,7 +94,7 @@ pip install funget
 
 ```toml
 [dependencies]
-funget-core = "0.2"
+funget-core = "0.3"
 ```
 
 crate 的版本线是独立的 0.x —— 它的公开模块当初是为跨 crate 复用而 `pub` 的，
@@ -137,6 +137,18 @@ funget download --auto https://httpbin.org/bytes/1024 -o file.bin
 
 `download` 和 `upload` 另有 `-s, --silent` 关掉进度条（非 TTY 环境本来就不画）。
 不传 `-x` 时沿用 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` 环境变量，与 curl 一致。
+
+下载时可以传 `--sha256 HEX` 校验本地文件。摘要是发布方提供的 64 位十六进制字符串，大小写均可。
+同大小的已有文件也会校验。摘要不匹配时命令返回 1 并保留文件，要重新下载可加 `--overwrite`。
+
+```bash
+funget download --auto --resume --sha256 "$EXPECTED_SHA256" -o data.bin "$URL"
+funget download --auto --progress=plain -o data.bin "$URL" 2>transfer.log
+```
+
+下载和上传均支持 `--progress=plain`，传输期间每 5 秒向标准错误写一行，结束时再写一次。
+总大小未知时显示已传字节数、速度和耗时。单线程续传时，如果 Ctrl+C 时本地文件比最近一次
+保存的断点稍长，重跑同一命令会从已确认的位置继续，并重新获取断点之后的字节。
 
 运行 `funget --help` 或 `funget <command> --help` 查看完整参数。
 

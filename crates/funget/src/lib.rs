@@ -195,6 +195,10 @@ pub struct DownloadArgs {
     #[arg(long)]
     pub single: bool,
 
+    /// Verify the local file against this SHA-256 digest, including skipped files.
+    #[arg(long, value_name = "HEX", value_parser = parse_sha256)]
+    pub sha256: Option<String>,
+
     /// Re-download even if the file is already complete.
     #[arg(long)]
     pub overwrite: bool,
@@ -203,6 +207,10 @@ pub struct DownloadArgs {
     /// Resume an interrupted download instead of starting over.
     #[arg(long)]
     pub resume: bool,
+
+    /// Progress output: auto for terminals, plain for periodic log lines.
+    #[arg(long, value_parser = ["auto", "plain"], conflicts_with = "silent")]
+    pub progress: Option<String>,
 
     /// Do not draw the progress bar.
     #[arg(short = 's', long)]
@@ -255,6 +263,10 @@ pub struct UploadArgs {
     #[arg(short = 'r', long, default_value_t = 3)]
     pub max_retries: i64,
 
+    /// Progress output: auto for terminals, plain for periodic log lines.
+    #[arg(long, value_parser = ["auto", "plain"], conflicts_with = "silent")]
+    pub progress: Option<String>,
+
     /// Do not draw the progress bar.
     #[arg(short = 's', long)]
     pub silent: bool,
@@ -297,6 +309,37 @@ fn init_logging(verbose: bool) {
         .try_init();
 }
 
+fn parse_sha256(raw: &str) -> Result<String, String> {
+    if raw.len() == 64 && raw.bytes().all(|b| b.is_ascii_hexdigit()) {
+        Ok(raw.to_ascii_lowercase())
+    } else {
+        Err("expected 64 hexadecimal digits".into())
+    }
+}
+
+fn file_sha256(path: &str) -> std::io::Result<String> {
+    use ring::digest::{Context, SHA256};
+    use std::io::{BufRead, BufReader};
+
+    let mut reader = BufReader::with_capacity(64 * 1024, std::fs::File::open(path)?);
+    let mut context = Context::new(&SHA256);
+    loop {
+        let bytes = reader.fill_buf()?;
+        let count = bytes.len();
+        if count == 0 {
+            break;
+        }
+        context.update(bytes);
+        reader.consume(count);
+    }
+    Ok(context
+        .finish()
+        .as_ref()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect())
+}
+
 fn download(args: DownloadArgs) -> i32 {
     let destination = args.output.unwrap_or_else(|| default_filename(&args.url));
 
@@ -307,12 +350,28 @@ fn download(args: DownloadArgs) -> i32 {
         max_retries: args.max_retries,
         resume: args.resume,
         progress: !args.silent,
+        plain_progress: args.progress.as_deref() == Some("plain"),
         http: args.http.http_config(args.max_retries, 30),
         ..DownloadOptions::default()
     };
 
     let multi = if args.auto { None } else { Some(!args.single) };
     if funget_core::download_auto(&args.url, &destination, multi, &options) {
+        if let Some(expected) = args.sha256 {
+            match file_sha256(&destination) {
+                Ok(actual) if actual == expected => {}
+                Ok(actual) => {
+                    log::error!(
+                        "SHA-256 mismatch for {destination}: expected {expected}, got {actual}"
+                    );
+                    return 1;
+                }
+                Err(error) => {
+                    log::error!("Cannot verify {destination}: {error}");
+                    return 1;
+                }
+            }
+        }
         log::info!("Download completed: {destination}");
         0
     } else {
@@ -333,6 +392,7 @@ fn upload(args: UploadArgs) -> i32 {
         auth: args.http.user.clone(),
         timeout: args.http.timeout.unwrap_or(60) as i64,
         progress: !args.silent,
+        plain_progress: args.progress.as_deref() == Some("plain"),
         transport: args.http.transport(),
         ..UploadOptions::default()
     };
@@ -487,6 +547,19 @@ mod tests {
         assert_eq!(args.block_size, 7);
         assert_eq!(args.max_retries, 2);
         assert!(args.single && args.overwrite && args.resume);
+    }
+
+    #[test]
+    fn sha256_accepts_uppercase_and_checks_the_file_contents() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml");
+        let expected = ring::digest::digest(&ring::digest::SHA256, &std::fs::read(path).unwrap());
+        assert_eq!(
+            format!("SHA256:{}", file_sha256(path).unwrap()),
+            format!("{expected:?}")
+        );
+        assert_eq!(parse_sha256(&"AB".repeat(32)).unwrap(), "ab".repeat(32));
+        assert!(parse_sha256(&"z".repeat(64)).is_err());
+        assert!(parse_sha256("abc").is_err());
     }
 
     #[test]
