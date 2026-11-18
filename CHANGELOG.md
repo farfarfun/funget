@@ -1,6 +1,6 @@
 # Changelog
 
-## 未发布
+## 1.3.0（funget-core 0.2.1）
 
 - CLI 新增 `download --auto` 和 `info --json`。文件信息探测失败时，`info` 返回退出码 1。
 - 下载引擎从 HEAD 的 Content-Length 读取大小，单线程复用探测结果，自动模式在 10 MiB 及以下跳过 Range 探测。

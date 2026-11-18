@@ -6,7 +6,7 @@ name = "funget-core"
 #
 # crates/funget 相反 —— 它的 clap `--version` 必须和 PyPI 同号,所以写
 # `version.workspace = true`。详见该 crate 的 Cargo.toml 注释。
-version = "0.2.0"
+version = "0.2.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
